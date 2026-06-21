@@ -207,4 +207,5 @@ marimo/_lsp/
 __marimo__/
 phrasplit/_version.py
 TASKS.md
-context_phrasplit.md
+context_phrasplit.*
+
