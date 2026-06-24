@@ -773,3 +773,61 @@ class TestExactSliceInvariant:
         for seg in segments:
             assert text.strip()[seg.char_start : seg.char_end] == seg.text
             assert len(seg.text) <= 40
+
+
+class TestInlineMarkupMode:
+    """Tests for the opt-in inline_markup XHTML sentence split mode."""
+
+    def test_inline_markup_splits_reported_sample_into_three_sentences(self) -> None:
+        """Inline XHTML no longer blocks sentence boundaries;"""
+        """fragments stay balanced."""
+        sample = (
+            "He nodded slowly. "
+            "<em>I can\u2019t force her, for all that I need her.</em> "
+            "Perhaps Tisamon would have more luck in persuading her."
+        )
+
+        segments = split_with_offsets(
+            sample,
+            mode="sentence",
+            use_spacy=False,
+            language_model="en_core_web_sm",
+            inline_markup=True,
+        )
+
+        assert [seg.text for seg in segments] == [
+            "He nodded slowly.",
+            "<em>I can\u2019t force her, for all that I need her.</em>",
+            "Perhaps Tisamon would have more luck in persuading her.",
+        ]
+        # Exact-slice invariant must hold for every markup segment.
+        assert all(
+            sample[seg.char_start : seg.char_end] == seg.text for seg in segments
+        )
+
+    def test_inline_markup_default_is_unchanged_for_plain_text(self) -> None:
+        """Default (inline_markup omitted) behavior is unchanged on plain text."""
+        text = "Hello world. How are you?"
+
+        segments = split_with_offsets(text, mode="sentence", use_spacy=False)
+
+        assert [seg.text for seg in segments] == ["Hello world.", "How are you?"]
+
+    def test_inline_markup_keeps_closing_tag_with_previous_sentence(self) -> None:
+        """A closing tag between punctuation and whitespace"""
+        """stays in the previous segment."""
+        text = "One sentence. <em>Two sentence.</em> Three sentence."
+
+        segments = split_with_offsets(
+            text, mode="sentence", use_spacy=False, inline_markup=True
+        )
+
+        assert segments[1].text == "<em>Two sentence.</em>"
+        assert all(text[seg.char_start : seg.char_end] == seg.text for seg in segments)
+
+    def test_inline_markup_rejects_explicit_spacy_backend(self) -> None:
+        """inline_markup=True requires the regex backend."""
+        with pytest.raises(ValueError, match="regex backend"):
+            split_with_offsets(
+                "a. b.", mode="sentence", use_spacy=True, inline_markup=True
+            )

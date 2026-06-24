@@ -82,6 +82,12 @@ _CLOSING_PUNCTUATION = "\"')]}»”’"
 
 _ELLIPSIS_PATTERN = re.compile(r"(?:\.{3,}|(?:\.\s){2,}\.|…)")
 
+# Inline markup (XHTML) tag patterns for the opt-in inline_markup split mode.
+# Conservative: an ordinary '<' comparison (e.g. "a < b") does not match because
+# an opening tag must start with a letter, and a closing tag must start with '</'.
+_OPEN_TAG_PATTERN = re.compile(r"<[A-Za-z][^>]*>")
+_CLOSE_TAG_PATTERN = re.compile(r"</[A-Za-z][^>]*>")
+
 # Default maximum chunk size for spaCy processing (will be capped by nlp.max_length)
 _DEFAULT_MAX_CHUNK_SIZE = 500000
 
@@ -226,6 +232,24 @@ def _extract_leading_word(text: str) -> str | None:
         return None
     first_word = stripped.split()[0]
     return first_word.strip(_CLOSING_PUNCTUATION)
+
+
+def _skip_opening_tags(text: str, pos: int) -> int:
+    """Return the index after a run of opening/empty tags starting at ``pos``."""
+    while True:
+        match = _OPEN_TAG_PATTERN.match(text, pos)
+        if match is None:
+            return pos
+        pos = match.end()
+
+
+def _skip_closing_tags(text: str, pos: int) -> int:
+    """Return the index after a run of closing tags starting at ``pos``."""
+    while True:
+        match = _CLOSE_TAG_PATTERN.match(text, pos)
+        if match is None:
+            return pos
+        pos = match.end()
 
 
 def _is_sentence_start(text: str, start: int, *, allow_lowercase: bool = False) -> bool:
@@ -1670,11 +1694,131 @@ def _simple_sentence_split_preserving_offsets(  # noqa: C901
     return sentences
 
 
+def _simple_sentence_split_with_markup_offsets(  # noqa: C901
+    text: str, language_model: str = "en"
+) -> list[tuple[str, int, int]]:
+    """Markup-aware sentence split preserving exact character offsets.
+
+    Like :func:`_simple_sentence_split_preserving_offsets`, but understands inline
+    XHTML tags so sentence boundaries are not blocked by inline markup:
+
+    * Closing tags immediately after sentence punctuation belong to the previous
+      segment, keeping fragments balanced (``her.</em>`` keeps ``</em>``).
+    * Opening/empty tags after the following whitespace belong to the next
+      segment (``slowly. <em>I`` starts the next segment at ``<em>``).
+
+    The exact-slice invariant ``text[start:end] == sentence_text`` is preserved.
+    Tags are matched with a conservative regex; ordinary ``<`` comparisons are
+    not treated as tags.
+    """
+    if not text:
+        return []
+
+    abbreviations = get_abbreviations(language_model)
+    sentence_ending_abbrevs = get_sentence_ending_abbreviations()
+    sentence_starters = get_sentence_starters()
+
+    sentence_pattern = re.compile(r"[.!?]+")
+
+    sentences: list[tuple[str, int, int]] = []
+    last_end = 0
+
+    for match in sentence_pattern.finditer(text):
+        match_start = match.start()
+        match_end = match.end()
+
+        # Closing tags after punctuation belong to the previous segment so
+        # fragments stay balanced; the boundary sits after them.
+        seg_end = _skip_closing_tags(text, match_end)
+        if seg_end >= len(text) or not text[seg_end].isspace():
+            continue
+
+        # Skip whitespace, then opening/empty tags, to reach the real next start.
+        ws_end = seg_end
+        while ws_end < len(text) and text[ws_end].isspace():
+            ws_end += 1
+        next_visible = _skip_opening_tags(text, ws_end)
+        if next_visible >= len(text):
+            continue
+        if not _is_sentence_start(text, next_visible):
+            continue
+
+        # Abbreviation handling (same token-before logic as the plain splitter).
+        is_abbreviation = False
+        token_start = match_start - 1
+        while token_start >= 0 and not text[token_start].isspace():
+            token_start -= 1
+        token = text[token_start + 1 : match_start]
+        token = token.strip(_CLOSING_PUNCTUATION)
+        abbrev_token = token.rstrip(".")
+        abbrev_key = abbrev_token.replace(".", "")
+        dotted_acronym = "." in abbrev_token and all(
+            char.isalpha() or char == "." for char in abbrev_token
+        )
+
+        if abbrev_key:
+            if abbrev_key in sentence_ending_abbrevs:
+                is_abbreviation = False
+            elif abbrev_key in abbreviations or dotted_acronym:
+                next_word = _extract_leading_word(text[next_visible:])
+                if dotted_acronym and next_word and next_word in sentence_starters:
+                    is_abbreviation = False
+                else:
+                    is_abbreviation = True
+
+        if is_abbreviation:
+            continue
+
+        sent_text = text[last_end:seg_end].strip()
+        if sent_text:
+            sent_start = last_end
+            while sent_start < seg_end and text[sent_start].isspace():
+                sent_start += 1
+            sent_end_adjusted = seg_end
+            while (
+                sent_end_adjusted > sent_start and text[sent_end_adjusted - 1].isspace()
+            ):
+                sent_end_adjusted -= 1
+            if sent_start < sent_end_adjusted:
+                sentences.append(
+                    (text[sent_start:sent_end_adjusted], sent_start, sent_end_adjusted)
+                )
+
+        last_end = seg_end
+
+    # Add final sentence
+    if last_end < len(text):
+        sent_text = text[last_end:].strip()
+        if sent_text:
+            sent_start = last_end
+            while sent_start < len(text) and text[sent_start].isspace():
+                sent_start += 1
+            sent_end = len(text)
+            while sent_end > sent_start and text[sent_end - 1].isspace():
+                sent_end -= 1
+            if sent_start < sent_end:
+                sentences.append((text[sent_start:sent_end], sent_start, sent_end))
+
+    # Fallback: if no sentences found, return the whole text as one sentence
+    if not sentences and text.strip():
+        sent_start = 0
+        while sent_start < len(text) and text[sent_start].isspace():
+            sent_start += 1
+        sent_end = len(text)
+        while sent_end > sent_start and text[sent_end - 1].isspace():
+            sent_end -= 1
+        if sent_start < sent_end:
+            sentences.append((text[sent_start:sent_end], sent_start, sent_end))
+
+    return sentences
+
+
 def _split_with_offsets_regex(
     text: str,
     language_model: str = "en_core_web_sm",
     mode: str = "sentence",
     max_chars: int | None = None,
+    inline_markup: bool = False,
 ) -> list[SplitSegment]:
     """Split text using regex-based approach with character offsets.
 
@@ -1739,9 +1883,14 @@ def _split_with_offsets_regex(
 
         # For sentence and clause modes, use offset-preserving sentence split
         # This avoids preprocessing that would break the exact-slice invariant
-        sentences_with_offsets = _simple_sentence_split_preserving_offsets(
-            para_text, language_model
-        )
+        if inline_markup:
+            sentences_with_offsets = _simple_sentence_split_with_markup_offsets(
+                para_text, language_model
+            )
+        else:
+            sentences_with_offsets = _simple_sentence_split_preserving_offsets(
+                para_text, language_model
+            )
 
         sent_idx = 0
         for sent_text, sent_offset_in_para, sent_end_in_para in sentences_with_offsets:
@@ -2034,6 +2183,7 @@ def split_with_offsets(
     language_model: str = "en_core_web_sm",
     apply_corrections: bool = True,
     max_chars: int | None = None,
+    inline_markup: bool = False,
 ) -> list[SplitSegment]:
     """Split text into segments with character offsets and stable IDs.
 
@@ -2079,6 +2229,13 @@ def split_with_offsets(
             will be split further at whitespace/punctuation boundaries while
             maintaining the exact-slice invariant. Split segments get IDs
             like "p0s1:m0", "p0s1:m1", etc.
+        inline_markup: Opt-in inline XHTML markup handling (default False). When
+            True, the regex backend keeps inline tags balanced across sentence
+            boundaries: closing tags after punctuation stay in the previous
+            segment and opening tags after whitespace start the next segment.
+            Requires the regex backend; passing ``use_spacy=True`` with
+            ``inline_markup=True`` raises ValueError. Default behavior (plain
+            text) is unchanged when False.
 
     Returns:
         List of SplitSegment objects, each containing:
@@ -2121,6 +2278,16 @@ def split_with_offsets(
     if max_chars is not None and max_chars < 1:
         raise ValueError(f"max_chars must be at least 1, got {max_chars}")
 
+    # inline_markup is only supported by the regex backend. Force it and reject
+    # an explicit spaCy request so callers do not silently get plain-text splits.
+    if inline_markup:
+        if use_spacy is True:
+            raise ValueError(
+                "inline_markup=True is only supported with the regex backend "
+                "(use_spacy=False)."
+            )
+        use_spacy = False
+
     # Determine which implementation to use
     if use_spacy is None:
         use_spacy = SPACY_AVAILABLE
@@ -2140,7 +2307,9 @@ def split_with_offsets(
             apply_corrections,
         )
     else:
-        segments = _split_with_offsets_regex(text, language_model, mode, max_chars)
+        segments = _split_with_offsets_regex(
+            text, language_model, mode, max_chars, inline_markup=inline_markup
+        )
 
     _validate_offset_segments(text, segments)
     return segments
@@ -2154,6 +2323,7 @@ def iter_split_with_offsets(
     language_model: str = "en_core_web_sm",
     apply_corrections: bool = True,
     max_chars: int | None = None,
+    inline_markup: bool = False,
 ) -> Iterator[SplitSegment]:
     """Streaming iterator variant of split_with_offsets().
 
@@ -2195,5 +2365,6 @@ def iter_split_with_offsets(
         language_model=language_model,
         apply_corrections=apply_corrections,
         max_chars=max_chars,
+        inline_markup=inline_markup,
     )
     yield from segments
