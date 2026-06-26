@@ -6,7 +6,7 @@
     "internal": true,
     "kind": "internal",
     "order": 1,
-    "record_revision": 2,
+    "record_revision": 3,
     "release_version": "v0.3.3",
     "scopes": [],
     "source_refs": [
@@ -15,6 +15,34 @@
       "git:9715f5ff990196711f0ab99d8210dfe383515888"
     ],
     "status": "accepted",
-    "summary": "Add codecrate configuration for project context generation"
+    "summary": "Added codecrate configuration for project context generation"
+  },
+  {
+    "audience": null,
+    "breaking": false,
+    "entry_id": "entry-0002",
+    "internal": false,
+    "kind": "added",
+    "order": 2,
+    "record_revision": 3,
+    "release_version": "v0.3.3",
+    "scopes": [],
+    "source_refs": ["git:44f5989a7bc70278f113665c34578dcc168f157a"],
+    "status": "accepted",
+    "summary": "Added inline_markup parameter for XHTML inline tag handling"
+  },
+  {
+    "audience": null,
+    "breaking": false,
+    "entry_id": "entry-0003",
+    "internal": false,
+    "kind": "changed",
+    "order": 3,
+    "record_revision": 2,
+    "release_version": "v0.3.3",
+    "scopes": [],
+    "source_refs": ["git:769bf35f3d6ecf0afec81b7dc4159c111ffaf52e"],
+    "status": "accepted",
+    "summary": "Changed repository URL to buchwandler/phrasplit"
   }
 ]

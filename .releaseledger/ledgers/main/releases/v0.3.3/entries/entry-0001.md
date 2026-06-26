@@ -3,11 +3,11 @@ schema_version: 2
 object_type: release_entry
 versioning:
   schema_version: 1
-  revision: 2
+  revision: 3
 entry_id: entry-0001
 release_version: v0.3.3
 kind: internal
-summary: Add codecrate configuration for project context generation
+summary: Added codecrate configuration for project context generation
 status: accepted
 audience: null
 scopes: []

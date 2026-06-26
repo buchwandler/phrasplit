@@ -2,14 +2,14 @@ schema_version: 1
 object_type: commit_audit_sheet
 versioning:
   schema_version: 1
-  revision: 2
+  revision: 3
 release_version: v0.3.3
 git_base_ref: v0.3.2
 git_base_sha: e755d74fa9c42af3dc04ddb7d085a40d3588b9a9
 git_head_ref: HEAD
-git_head_sha: 9715f5ff990196711f0ab99d8210dfe383515888
-git_range: e755d74fa9c42af3dc04ddb7d085a40d3588b9a9..9715f5ff990196711f0ab99d8210dfe383515888
-commit_count: 3
+git_head_sha: 769bf35f3d6ecf0afec81b7dc4159c111ffaf52e
+git_range: e755d74fa9c42af3dc04ddb7d085a40d3588b9a9..769bf35f3d6ecf0afec81b7dc4159c111ffaf52e
+commit_count: 5
 rows:
   - sha: 3d9b27f79af22090f0c28d488f0cca3b079d57c4
     source_ref: git:3d9b27f79af22090f0c28d488f0cca3b079d57c4
@@ -19,14 +19,17 @@ rows:
       - .gitignore
     stats:
       files_changed: 0
-      insertions: 12
+      insertions: 0
       deletions: 0
-    inspected: false
-    inspected_paths: []
-    observed_behavior: ""
-    public_impact: unknown
-    decision: needs_review
-    evidence_subject: "chore: update gitignore"
+    inspected: true
+    inspected_paths:
+      - .codecrate.toml
+      - .gitignore
+    observed_behavior:
+      Added .codecrate.toml configuration for codecrate project context generation tool
+      and updated .gitignore to exclude generated files
+    public_impact: internal
+    decision: internal
     target_entry_id: entry-0001
   - sha: ec14f8e9595fec4aa99a3d22b2d34a2bfb5136d2
     source_ref: git:ec14f8e9595fec4aa99a3d22b2d34a2bfb5136d2
@@ -36,13 +39,13 @@ rows:
     stats:
       files_changed: 0
       insertions: 0
-      deletions: 1
-    inspected: false
-    inspected_paths: []
-    observed_behavior: ""
-    public_impact: unknown
-    decision: needs_review
-    evidence_subject: "chore: fix pre-commit"
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - .codecrate.toml
+    observed_behavior: Removed trailing newline from .codecrate.toml configuration file
+    public_impact: internal
+    decision: internal
     target_entry_id: entry-0001
   - sha: 9715f5ff990196711f0ab99d8210dfe383515888
     source_ref: git:9715f5ff990196711f0ab99d8210dfe383515888
@@ -52,12 +55,74 @@ rows:
       - .gitignore
     stats:
       files_changed: 0
-      insertions: 10
-      deletions: 4
-    inspected: false
-    inspected_paths: []
-    observed_behavior: ""
-    public_impact: unknown
-    decision: needs_review
-    evidence_subject: "feat: update codecrate"
+      insertions: 0
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - .codecrate.toml
+      - .gitignore
+    observed_behavior:
+      "Updated codecrate configuration: added new include patterns, enabled
+      portable-agent profile and standalone unpacker, updated gitignore to cover all
+      context_phrasplit.* files"
+    public_impact: internal
+    decision: internal
     target_entry_id: entry-0001
+  - sha: 44f5989a7bc70278f113665c34578dcc168f157a
+    source_ref: git:44f5989a7bc70278f113665c34578dcc168f157a
+    short_sha: 44f5989
+    changed_paths:
+      - .gitignore
+      - .releaseledger.toml
+      - .releaseledger/ledgers/main/events/events.jsonl
+      - .releaseledger/ledgers/main/indexes/entries.json
+      - .releaseledger/ledgers/main/indexes/releases.json
+      - .releaseledger/ledgers/main/releases/v0.3.3/audit/commit-audit.yaml
+      - .releaseledger/ledgers/main/releases/v0.3.3/entries/entry-0001.md
+      - .releaseledger/ledgers/main/releases/v0.3.3/release.md
+      - CHANGELOG.md
+      - phrasplit/splitter.py
+      - tests/test_offsets.py
+    stats:
+      files_changed: 0
+      insertions: 0
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - phrasplit/splitter.py
+      - tests/test_offsets.py
+    observed_behavior:
+      "Added inline_markup parameter to split_with_offsets() and
+      iter_split_with_offsets() for XHTML inline tag handling. Splitter keeps tags
+      balanced across sentence boundaries: closing tags after punctuation stay in the
+      previous segment, opening tags after whitespace start the next. Also set up
+      releaseledger release management infrastructure."
+    public_impact: public
+    decision: accepted
+    target_entry_id: entry-0002
+  - sha: 769bf35f3d6ecf0afec81b7dc4159c111ffaf52e
+    source_ref: git:769bf35f3d6ecf0afec81b7dc4159c111ffaf52e
+    short_sha: 769bf35
+    changed_paths:
+      - .releaseledger/ledgers/main/events/events.jsonl
+      - .releaseledger/ledgers/main/indexes/releases.json
+      - .releaseledger/ledgers/main/releases/v0.3.3/audit/commit-audit.yaml
+      - .releaseledger/ledgers/main/releases/v0.3.3/entries/entry-0001.md
+      - .releaseledger/ledgers/main/releases/v0.3.3/release.md
+      - CHANGELOG.md
+      - docs/installation.rst
+      - pyproject.toml
+    stats:
+      files_changed: 0
+      insertions: 0
+      deletions: 0
+    inspected: true
+    inspected_paths:
+      - docs/installation.rst
+      - pyproject.toml
+    observed_behavior:
+      Updated repository URL from holgern/phrasplit to buchwandler/phrasplit in
+      pyproject.toml and documentation. Finalized v0.3.3 release with released_at date.
+    public_impact: public
+    decision: accepted
+    target_entry_id: entry-0003
