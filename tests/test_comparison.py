@@ -101,9 +101,9 @@ class TestAccuracyMetrics:
 
         accuracy = matches / total
         # Simple mode should get at least 80% accuracy on these easy cases
-        assert (
-            accuracy >= 0.8
-        ), f"Simple mode accuracy: {accuracy:.1%} (expected >= 80%)"
+        assert accuracy >= 0.8, (
+            f"Simple mode accuracy: {accuracy:.1%} (expected >= 80%)"
+        )
 
 
 def test_performance_indicator() -> None:

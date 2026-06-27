@@ -94,9 +94,9 @@ class TestStability:
 
         # Check char_start ordering
         for i in range(len(segments) - 1):
-            assert (
-                segments[i].char_start <= segments[i + 1].char_start
-            ), "Segments should be in document order"
+            assert segments[i].char_start <= segments[i + 1].char_start, (
+                "Segments should be in document order"
+            )
 
     def test_clause_id_stability(self) -> None:
         """Test stable IDs in clause mode."""
@@ -138,9 +138,9 @@ class TestStability:
 
         # Check sentence indices reset
         assert para0_segs[0].sentence_idx == 0
-        assert (
-            para1_segs[0].sentence_idx == 0
-        ), "Sentence indices should reset per paragraph"
+        assert para1_segs[0].sentence_idx == 0, (
+            "Sentence indices should reset per paragraph"
+        )
 
     def test_metadata_consistency(self) -> None:
         """Test that metadata is consistent across runs."""
@@ -167,9 +167,9 @@ class TestStability:
                 # Verify offset consistency
                 extracted = text[seg.char_start : seg.char_end]
                 # Allow for whitespace normalization
-                assert (
-                    seg.text.strip() == extracted.strip()
-                ), f"Offset mismatch for text: {text!r}"
+                assert seg.text.strip() == extracted.strip(), (
+                    f"Offset mismatch for text: {text!r}"
+                )
 
     def test_stability_with_special_characters(self) -> None:
         """Test stability with special characters and Unicode."""

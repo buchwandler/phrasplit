@@ -371,9 +371,9 @@ class TestContentPreservation:
             text = f'First sentence. (Or "second.{mark})'
             result = split_sentences_simple(text)
             joined = " ".join(result)
-            assert (
-                joined == text
-            ), f"Content not preserved with closing mark '{mark}': {text}"
+            assert joined == text, (
+                f"Content not preserved with closing mark '{mark}': {text}"
+            )
             # The closing mark should be preserved somewhere in the results
             all_text = "".join(result)
             assert mark in all_text, f"Closing mark '{mark}' lost from output"
@@ -658,9 +658,9 @@ class TestContentPreservation:
             result = split_long_lines_simple(text, max_length=50)
             joined = "\n".join(result)
             # Long lines may normalize whitespace
-            assert (
-                joined.replace("\n", " ").strip() == text.strip()
-            ), f"Long line changed content: {text}"
+            assert joined.replace("\n", " ").strip() == text.strip(), (
+                f"Long line changed content: {text}"
+            )
 
     def test_mixed_newlines_preservation(self) -> None:
         """Test handling of texts with existing newlines."""
@@ -677,6 +677,6 @@ class TestContentPreservation:
             # So we compare with normalized whitespace
             original_normalized = " ".join(text.split())
             joined_normalized = " ".join(joined.split())
-            assert (
-                original_normalized == joined_normalized
-            ), f"Newline handling changed content: {text}"
+            assert original_normalized == joined_normalized, (
+                f"Newline handling changed content: {text}"
+            )

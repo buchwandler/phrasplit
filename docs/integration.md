@@ -285,6 +285,6 @@ New code using `split_with_offsets()` should:
 
 ### References
 
-- [Offset Coordinate System](offsets.rst)
-- [Streaming API](streaming.rst)
-- [SSMD Integration Examples](offsets.rst#integration-with-markup-languages)
+- [Offset Coordinate System](offsets.md)
+- [Streaming API](streaming.md)
+- [SSMD Integration Examples](offsets.md#integration-with-markup-languages)

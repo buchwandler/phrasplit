@@ -39,6 +39,12 @@ dynamic=["version"]
 nlp = [
     "spacy>=3.5.0",
 ]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+    "myst-parser>=2.0.0",
+    "rst-to-myst>=0.4.0",
+]
 dev = [
     "pytest>=7.0.0",
     "ruff>=0.1.0",

@@ -27,7 +27,14 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "myst_parser",
 ]
+
+# Parse Markdown documentation sources with MyST.
+# The final all-Markdown state uses .md alone.
+source_suffix = {
+    ".md": "markdown",
+}
 
 # Napoleon settings for NumPy-style docstrings
 napoleon_google_docstring = False
