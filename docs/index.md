@@ -82,6 +82,9 @@ usage
 cli
 api
 examples
+integration
+offsets
+streaming
 ```
 
 # Indices and tables

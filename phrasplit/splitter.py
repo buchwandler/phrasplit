@@ -27,10 +27,10 @@ class Segment(NamedTuple):
     """A text segment with position information.
 
     Attributes:
-        text: The text content of the segment
-        paragraph: Paragraph index (0-based) within the document
-        sentence: Sentence index (0-based) within the paragraph.
-            None for paragraph mode.
+        - ``text``: The text content of the segment.
+        - ``paragraph``: Paragraph index (0-based) within the document.
+        - ``sentence``: Sentence index (0-based) within the paragraph.
+          ``None`` for paragraph mode.
     """
 
     text: str
@@ -813,9 +813,9 @@ def split_sentences(
         split_on_colon: Deprecated. Kept for API compatibility (currently unused).
             spaCy's default colon behavior is used. Default is True.
         use_spacy: Choose implementation:
-            - None (default): Auto-detect spaCy and use if available
-            - True: Force spaCy (raise ImportError if not installed)
-            - False: Force simple regex-based splitting (no spaCy)
+            ``None`` (default) auto-detects spaCy and uses it if available.
+            ``True`` forces spaCy and raises ImportError if not installed.
+            ``False`` forces simple regex-based splitting without spaCy.
 
     Returns:
         List of sentences
@@ -823,7 +823,8 @@ def split_sentences(
     Raises:
         ImportError: If use_spacy=True but spaCy is not installed
 
-    Example:
+    Example::
+
         >>> # Auto-detect (uses spaCy if available)
         >>> sentences = split_sentences(text)
         >>>
@@ -836,8 +837,9 @@ def split_sentences(
     Note:
         The simple mode (regex-based) is faster and has no ML dependencies,
         but is less accurate (~85-90% vs ~95%+ for spaCy) on complex text.
-        For best results with complex text, install spaCy:
-        pip install phrasplit[nlp]
+        For best results with complex text, install spaCy::
+
+            pip install phrasplit[nlp]
     """
     # Deprecation warning for split_on_colon
     if not split_on_colon:
@@ -952,9 +954,9 @@ def split_clauses(
         text: Input text
         language_model: Language model name (e.g., "en_core_web_sm")
         use_spacy: Choose implementation:
-            - None (default): Auto-detect spaCy and use if available
-            - True: Force spaCy (raise ImportError if not installed)
-            - False: Force simple regex-based splitting
+            ``None`` (default) auto-detects spaCy and uses it if available.
+            ``True`` forces spaCy and raises ImportError if not installed.
+            ``False`` forces simple regex-based splitting.
 
     Returns:
         List of comma-separated parts
@@ -962,7 +964,8 @@ def split_clauses(
     Raises:
         ImportError: If use_spacy=True but spaCy is not installed
 
-    Example:
+    Example::
+
         Input: "I do like coffee, and I like wine."
         Output: ["I do like coffee,", "and I like wine."]
     """
@@ -1164,9 +1167,9 @@ def split_long_lines(
         max_length: Maximum line length in characters (must be positive)
         language_model: Language model name (e.g., "en_core_web_sm")
         use_spacy: Choose implementation:
-            - None (default): Auto-detect spaCy and use if available
-            - True: Force spaCy (raise ImportError if not installed)
-            - False: Force simple regex-based splitting
+            ``None`` (default) auto-detects spaCy and uses it if available.
+            ``True`` forces spaCy and raises ImportError if not installed.
+            ``False`` forces simple regex-based splitting.
 
     Returns:
         List of lines, each within max_length (except single words exceeding limit)
@@ -1210,11 +1213,8 @@ def split_text(
 
     Args:
         text: Input text to split
-        mode: Splitting mode - one of:
-            - "paragraph": Split into paragraphs only
-            - "sentence": Split into sentences, grouped by paragraph
-            - "clause": Split into clauses (comma-separated), with paragraph
-              and sentence info
+        mode: Splitting mode. Valid values are ``"paragraph"``, ``"sentence"``,
+            and ``"clause"``.
         language_model: Language model name (e.g., "en_core_web_sm")
         apply_corrections: Whether to apply post-processing corrections for
             common spaCy errors (URL splitting, abbreviation handling).
@@ -1222,9 +1222,9 @@ def split_text(
         split_on_colon: Deprecated. Kept for API compatibility (currently unused).
             spaCy's default colon behavior is used. Default is True.
         use_spacy: Choose implementation:
-            - None (default): Auto-detect spaCy and use if available
-            - True: Force spaCy (raise ImportError if not installed)
-            - False: Force simple regex-based splitting
+            ``None`` (default) auto-detects spaCy and uses it if available.
+            ``True`` forces spaCy and raises ImportError if not installed.
+            ``False`` forces simple regex-based splitting.
 
     Returns:
         List of Segment namedtuples, each containing:
@@ -1237,7 +1237,8 @@ def split_text(
         ValueError: If mode is not one of "paragraph", "sentence", "clause"
         ImportError: If use_spacy=True but spaCy is not installed
 
-    Example:
+    Example::
+
         >>> segments = split_text("Hello world. How are you?\\n\\nNew paragraph.")
         >>> for seg in segments:
         ...     print(f"P{seg.paragraph} S{seg.sentence}: {seg.text}")
@@ -2192,18 +2193,20 @@ def split_with_offsets(
 
     **Exact-Slice Policy**
 
-    This function implements the exact-slice policy: for every returned segment,
-    the following invariant ALWAYS holds:
+    This function implements the exact-slice policy. For every returned segment,
+    the following invariant ALWAYS holds::
 
         segment.text == text[segment.char_start:segment.char_end]
 
     This guarantee means:
+
     - Offsets map precisely to the original input text
     - No whitespace normalization or stripping breaks the mapping
     - Downstream code can reliably use offsets for span slicing
     - Integration with token alignment and markup slicing is safe
 
     Key features:
+
     - Returns segments with precise character offsets (char_start, char_end)
     - Generates stable, hierarchical IDs (e.g., "p0s1", "p0s2c3")
     - Maintains exact-slice invariant in all modes
@@ -2212,14 +2215,10 @@ def split_with_offsets(
 
     Args:
         text: Input text to split
-        mode: Splitting granularity:
-            - "paragraph": Split into paragraphs only
-            - "sentence": Split into sentences (default)
-            - "clause": Split into comma-separated clauses
-        use_spacy: Backend selection:
-            - None (default): Auto-detect, use spaCy if available
-            - True: Force spaCy (raises ImportError if unavailable)
-            - False: Force regex-based splitting
+        mode: Splitting granularity. Valid values are ``"paragraph"``,
+            ``"sentence"``, and ``"clause"``.
+        use_spacy: Backend selection. ``None`` (default) auto-detects spaCy,
+            ``True`` forces spaCy, and ``False`` forces regex-based splitting.
         language_model: Language model name (e.g., "en_core_web_sm", "de_core_news_sm")
             Used for both spaCy model selection and abbreviation handling
         apply_corrections: Whether to apply post-processing corrections for
@@ -2249,7 +2248,8 @@ def split_with_offsets(
         ValueError: If mode is invalid or max_chars < 1
         ImportError: If use_spacy=True but spaCy is not installed
 
-    Example:
+    Example::
+
         >>> text = "Hello world. How are you?\\n\\nNew paragraph."
         >>> segments = split_with_offsets(text, mode="sentence")
         >>> for seg in segments:
@@ -2343,7 +2343,8 @@ def iter_split_with_offsets(
     Yields:
         SplitSegment objects in document order
 
-    Example:
+    Example::
+
         >>> text = "First sentence. Second sentence.\\n\\nNew paragraph."
         >>> for segment in iter_split_with_offsets(text, mode="sentence"):
         ...     print(f"{segment.id}: {segment.text}")
