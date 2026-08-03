@@ -3,7 +3,7 @@ schema_version: 2
 object_type: release
 versioning:
   schema_version: 1
-  revision: 7
+  revision: 8
 version: v0.3.4
 status: released
 title: Release v0.3.4
@@ -20,7 +20,7 @@ artifact_count: 0
 git_base_ref: v0.3.3
 git_base_sha: 769bf35f3d6ecf0afec81b7dc4159c111ffaf52e
 git_head_ref: HEAD
-git_head_sha: ec5f339b8fa1a90bfe15516f845b7c489967fac2
-git_range: 769bf35f3d6ecf0afec81b7dc4159c111ffaf52e..ec5f339b8fa1a90bfe15516f845b7c489967fac2
-git_commit_count: 9
+git_head_sha: 11e4774aabe6d5f54cffea65cea7e966fcb3c367
+git_range: 769bf35f3d6ecf0afec81b7dc4159c111ffaf52e..11e4774aabe6d5f54cffea65cea7e966fcb3c367
+git_commit_count: 10
 ---

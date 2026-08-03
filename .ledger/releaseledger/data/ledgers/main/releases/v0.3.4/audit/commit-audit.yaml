@@ -2,14 +2,14 @@ schema_version: 1
 object_type: commit_audit_sheet
 versioning:
   schema_version: 1
-  revision: 3
+  revision: 6
 release_version: v0.3.4
 git_base_ref: v0.3.3
 git_base_sha: 769bf35f3d6ecf0afec81b7dc4159c111ffaf52e
 git_head_ref: HEAD
-git_head_sha: ec5f339b8fa1a90bfe15516f845b7c489967fac2
-git_range: 769bf35f3d6ecf0afec81b7dc4159c111ffaf52e..ec5f339b8fa1a90bfe15516f845b7c489967fac2
-commit_count: 9
+git_head_sha: 11e4774aabe6d5f54cffea65cea7e966fcb3c367
+git_range: 769bf35f3d6ecf0afec81b7dc4159c111ffaf52e..11e4774aabe6d5f54cffea65cea7e966fcb3c367
+commit_count: 10
 rows:
 - sha: 2287d0933649f9f50b1c618c7257799bc92f6415
   source_ref: git:2287d0933649f9f50b1c618c7257799bc92f6415
@@ -37,6 +37,7 @@ rows:
   decision: accepted
   evidence_subject: 'doc: update changelog'
   target_entry_key: entry-0002
+  target_entry_id: entry-0002
   notes: Covered by the existing documentation release entry.
 - sha: 086435c38b9631a8089693c259b80cb623663553
   source_ref: git:086435c38b9631a8089693c259b80cb623663553
@@ -85,6 +86,7 @@ rows:
   decision: accepted
   evidence_subject: 'doc: move rst to md files'
   target_entry_key: entry-0002
+  target_entry_id: entry-0002
   notes: Covered by the existing documentation release entry.
 - sha: 06ddcfe548be7813d1f442416f3455b4a91eed5f
   source_ref: git:06ddcfe548be7813d1f442416f3455b4a91eed5f
@@ -110,6 +112,7 @@ rows:
   decision: accepted
   evidence_subject: 'doc: fix formatting'
   target_entry_key: entry-0002
+  target_entry_id: entry-0002
   notes: Covered by the existing documentation release entry.
 - sha: fa221947c4aca537d39d8a4e54fdc65ce01e4530
   source_ref: git:fa221947c4aca537d39d8a4e54fdc65ce01e4530
@@ -133,6 +136,7 @@ rows:
   public_impact: internal
   decision: internal
   evidence_subject: 'chore: migrate taskledger to canonical .ledger storage'
+  target_entry_id: entry-0003
   notes: Internal ledger maintenance.
 - sha: 2979f6948efb44abf86033f04857ce9ed8d07a32
   source_ref: git:2979f6948efb44abf86033f04857ce9ed8d07a32
@@ -202,6 +206,7 @@ rows:
   public_impact: internal
   decision: internal
   evidence_subject: Migrate releaseledger to canonical .ledger storage layout
+  target_entry_id: entry-0003
   notes: Internal ledger maintenance.
 - sha: e8e4ef10b4e38c0903e92b468c8cc386af6ad243
   source_ref: git:e8e4ef10b4e38c0903e92b468c8cc386af6ad243
@@ -225,6 +230,7 @@ rows:
   public_impact: internal
   decision: internal
   evidence_subject: 'chore: pre-commit'
+  target_entry_id: entry-0003
   notes: Internal tooling maintenance.
 - sha: a87e10768e492cc0a432a4c9d4366d8ad0a34322
   source_ref: git:a87e10768e492cc0a432a4c9d4366d8ad0a34322
@@ -245,6 +251,7 @@ rows:
   public_impact: internal
   decision: internal
   evidence_subject: 'chore: pre-commit'
+  target_entry_id: entry-0003
   notes: Internal tooling maintenance.
 - sha: ec5f339b8fa1a90bfe15516f845b7c489967fac2
   source_ref: git:ec5f339b8fa1a90bfe15516f845b7c489967fac2
@@ -293,5 +300,34 @@ rows:
   public_impact: public
   decision: accepted
   evidence_subject: Prepare phrasplit 0.3.4 release
+  target_entry_id: entry-0004
   notes: New release-readiness hardening entry; summarize reviewed behavior rather
     than the commit subject.
+- sha: 11e4774aabe6d5f54cffea65cea7e966fcb3c367
+  source_ref: git:11e4774aabe6d5f54cffea65cea7e966fcb3c367
+  short_sha: 11e4774
+  changed_paths:
+  - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4/audit/commit-audit.yaml
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4/entries/entry-0001.md
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4/entries/entry-0002.md
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4/entries/entry-0003.md
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4/entries/entry-0004.md
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4/release.md
+  - CHANGELOG.md
+  stats:
+    files_changed: 0
+    insertions: 374
+    deletions: 36
+  inspected: true
+  inspected_paths:
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4
+  - CHANGELOG.md
+  observed_behavior: Recorded the reviewed release boundary, curated public and internal
+    release entries, and generated the dated changelog section; this commit is release
+    evidence rather than a package behavior change.
+  public_impact: internal
+  decision: internal
+  evidence_subject: Finalize phrasplit 0.3.4 release evidence
+  target_entry_key: entry-0003
+  notes: Internal release bookkeeping.

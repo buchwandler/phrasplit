@@ -3,7 +3,7 @@ schema_version: 2
 object_type: release_entry
 versioning:
   schema_version: 1
-  revision: 4
+  revision: 5
 entry_id: entry-0003
 release_version: v0.3.4
 kind: internal
@@ -16,6 +16,7 @@ source_refs:
 - git:0bbdd98af3475ece09990ba78ed581194118e4d0
 - git:e8e4ef10b4e38c0903e92b468c8cc386af6ad243
 - git:a87e10768e492cc0a432a4c9d4366d8ad0a34322
+- git:11e4774aabe6d5f54cffea65cea7e966fcb3c367
 paths: []
 issues: []
 prs: []
