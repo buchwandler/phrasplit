@@ -31,12 +31,11 @@ when a compatible result exists and otherwise uses regex splitting. Downstream c
 can use `language`, `language_model`, and `model_size` with the same semantics as the
 splitting APIs.
 
-`SpacyModelResolutionError` is the base class for resolver failures. Forced
-resolution raises `SpacyNotInstalledError` when spaCy is absent or
-`NoCompatibleSpacyModelError` when no compatible installed model loads. An explicit
-package failure raises `ExplicitSpacyModelError`; its `resolution` field contains
-attempts and accurate `available`/`loadable` flags. `SpacyModelAttempt` records each
-candidate load outcome.
+`SpacyModelResolutionError` is the base class for resolver failures. Forced resolution
+raises `SpacyNotInstalledError` when spaCy is absent or `NoCompatibleSpacyModelError`
+when no compatible installed model loads. An explicit package failure raises
+`ExplicitSpacyModelError`; its `resolution` field contains attempts and accurate
+`available`/`loadable` flags. `SpacyModelAttempt` records each candidate load outcome.
 
 ## Main Functions
 

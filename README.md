@@ -48,8 +48,8 @@ python -m spacy download en_core_web_sm
 | **Simple** | ~60x faster | ~85-90%  | None (regex only)       | Simple text, speed-critical apps |
 | **spaCy**  | Baseline    | ~95%+    | spaCy + models (~500MB) | Complex text, best accuracy      |
 
-Illustrative benchmark results (1000 sentences; recorded before 0.3.4 without a
-retained hardware, Python, or model-version manifest):
+Illustrative benchmark results (1000 sentences; recorded before 0.3.4 without a retained
+hardware, Python, or model-version manifest):
 
 - spaCy: 1091ms
 - Simple: 17ms (63x faster)

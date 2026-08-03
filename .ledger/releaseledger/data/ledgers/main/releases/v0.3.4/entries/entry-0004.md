@@ -12,13 +12,13 @@ status: accepted
 audience: null
 scopes: []
 source_refs:
-- git:ec5f339b8fa1a90bfe15516f845b7c489967fac2
+  - git:ec5f339b8fa1a90bfe15516f845b7c489967fac2
 paths:
-- phrasplit/spacy_models.py
-- tests/conftest.py
-- pyproject.toml
-- README.md
-- docs/api.md
+  - phrasplit/spacy_models.py
+  - tests/conftest.py
+  - pyproject.toml
+  - README.md
+  - docs/api.md
 issues: []
 prs: []
 sources: []

@@ -233,8 +233,8 @@ assert segments == []  # No non-whitespace content
 
 - **Regex backend** (`use_spacy=False`): 60x faster, good for simple text
 - **spaCy backend** (`use_spacy=True`): More accurate, better for complex text
-- **Auto-detect** (`use_spacy=None`, default): Uses the highest compatible installed
-  and loadable local model, otherwise regex
+- **Auto-detect** (`use_spacy=None`, default): Uses the highest compatible installed and
+  loadable local model, otherwise regex
 
 ### Memory Usage
 
