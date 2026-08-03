@@ -13,10 +13,10 @@ audience: null
 scopes: []
 source_refs: []
 paths:
-- docs/api.md
-- docs/cli.md
-- docs/usage.md
-- README.md
+  - docs/api.md
+  - docs/cli.md
+  - docs/usage.md
+  - README.md
 issues: []
 prs: []
 sources: []

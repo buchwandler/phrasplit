@@ -12,8 +12,8 @@ status: accepted
 audience: null
 scopes: []
 source_refs:
-- git:0bbdd98
-- git:fa22194
+  - git:0bbdd98
+  - git:fa22194
 paths: []
 issues: []
 prs: []
