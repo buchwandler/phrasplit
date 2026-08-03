@@ -1,0 +1,297 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 3
+release_version: v0.3.4
+git_base_ref: v0.3.3
+git_base_sha: 769bf35f3d6ecf0afec81b7dc4159c111ffaf52e
+git_head_ref: HEAD
+git_head_sha: ec5f339b8fa1a90bfe15516f845b7c489967fac2
+git_range: 769bf35f3d6ecf0afec81b7dc4159c111ffaf52e..ec5f339b8fa1a90bfe15516f845b7c489967fac2
+commit_count: 9
+rows:
+- sha: 2287d0933649f9f50b1c618c7257799bc92f6415
+  source_ref: git:2287d0933649f9f50b1c618c7257799bc92f6415
+  short_sha: 2287d09
+  changed_paths:
+  - .releaseledger/ledgers/main/events/events.jsonl
+  - .releaseledger/ledgers/main/indexes/entries.json
+  - .releaseledger/ledgers/main/indexes/releases.json
+  - .releaseledger/ledgers/main/releases/v0.3.3/audit/commit-audit.yaml
+  - .releaseledger/ledgers/main/releases/v0.3.3/entries/entry-0001.md
+  - .releaseledger/ledgers/main/releases/v0.3.3/entries/entry-0002.md
+  - .releaseledger/ledgers/main/releases/v0.3.3/entries/entry-0003.md
+  - .releaseledger/ledgers/main/releases/v0.3.3/release.md
+  - CHANGELOG.md
+  stats:
+    files_changed: 0
+    insertions: 205
+    deletions: 37
+  inspected: true
+  inspected_paths:
+  - CHANGELOG.md
+  observed_behavior: Updated the unreleased 0.3.4 changelog section with the model-selection
+    and documentation behavior that this release exposes.
+  public_impact: docs
+  decision: accepted
+  evidence_subject: 'doc: update changelog'
+  target_entry_key: entry-0002
+  notes: Covered by the existing documentation release entry.
+- sha: 086435c38b9631a8089693c259b80cb623663553
+  source_ref: git:086435c38b9631a8089693c259b80cb623663553
+  short_sha: 086435c
+  changed_paths:
+  - .github/workflows/pre-commit.yml
+  - .pre-commit-config.yaml
+  - .taskledger.toml
+  - docs/api.md
+  - docs/api.rst
+  - docs/cli.md
+  - docs/cli.rst
+  - docs/conf.py
+  - docs/examples.md
+  - docs/examples.rst
+  - docs/index.md
+  - docs/index.rst
+  - docs/installation.md
+  - docs/installation.rst
+  - docs/integration.md
+  - docs/offsets.md
+  - docs/offsets.rst
+  - docs/streaming.md
+  - docs/streaming.rst
+  - docs/usage.md
+  - docs/usage.rst
+  - pyproject.toml
+  - tests/test_comparison.py
+  - tests/test_splitter_without_spacy.py
+  - tests/test_stability.py
+  stats:
+    files_changed: 0
+    insertions: 2141
+    deletions: 2121
+  inspected: true
+  inspected_paths:
+  - docs/api.md
+  - docs/cli.md
+  - docs/installation.md
+  - docs/offsets.md
+  - docs/streaming.md
+  - docs/usage.md
+  observed_behavior: Converted the public documentation set from reStructuredText
+    sources to Markdown sources and updated the Sphinx configuration accordingly.
+  public_impact: docs
+  decision: accepted
+  evidence_subject: 'doc: move rst to md files'
+  target_entry_key: entry-0002
+  notes: Covered by the existing documentation release entry.
+- sha: 06ddcfe548be7813d1f442416f3455b4a91eed5f
+  source_ref: git:06ddcfe548be7813d1f442416f3455b4a91eed5f
+  short_sha: 06ddcfe
+  changed_paths:
+  - docs/conf.py
+  - docs/index.md
+  - docs/integration.md
+  - phrasplit/splitter.py
+  stats:
+    files_changed: 0
+    insertions: 45
+    deletions: 41
+  inspected: true
+  inspected_paths:
+  - docs/conf.py
+  - docs/index.md
+  - docs/integration.md
+  - phrasplit/splitter.py
+  observed_behavior: Corrected documentation formatting and autodoc-facing source
+    formatting without changing the intended public segmentation behavior.
+  public_impact: docs
+  decision: accepted
+  evidence_subject: 'doc: fix formatting'
+  target_entry_key: entry-0002
+  notes: Covered by the existing documentation release entry.
+- sha: fa221947c4aca537d39d8a4e54fdc65ce01e4530
+  source_ref: git:fa221947c4aca537d39d8a4e54fdc65ce01e4530
+  short_sha: fa22194
+  changed_paths:
+  - .gitignore
+  - .ledger/ledger.toml
+  - .ledger/taskledger/.ledger-project.toml
+  - .ledger/taskledger/config.toml
+  - .taskledger.toml
+  stats:
+    files_changed: 0
+    insertions: 34
+    deletions: 81
+  inspected: true
+  inspected_paths:
+  - .gitignore
+  - .taskledger.toml
+  observed_behavior: Migrated taskledger project registration and ignored-state references;
+    this is repository maintenance rather than user-facing package behavior.
+  public_impact: internal
+  decision: internal
+  evidence_subject: 'chore: migrate taskledger to canonical .ledger storage'
+  notes: Internal ledger maintenance.
+- sha: 2979f6948efb44abf86033f04857ce9ed8d07a32
+  source_ref: git:2979f6948efb44abf86033f04857ce9ed8d07a32
+  short_sha: 2979f69
+  changed_paths:
+  - README.md
+  - docs/api.md
+  - docs/cli.md
+  - docs/installation.md
+  - docs/usage.md
+  - phrasplit/__init__.py
+  - phrasplit/abbreviations.py
+  - phrasplit/cli.py
+  - phrasplit/spacy_models.py
+  - phrasplit/splitter.py
+  - phrasplit/splitter_without_spacy.py
+  - tests/test_cli.py
+  - tests/test_spacy_model_selection.py
+  stats:
+    files_changed: 0
+    insertions: 1232
+    deletions: 173
+  inspected: true
+  inspected_paths:
+  - phrasplit/spacy_models.py
+  - phrasplit/splitter.py
+  - phrasplit/cli.py
+  - tests/test_spacy_model_selection.py
+  observed_behavior: Added local-only language-aware spaCy model discovery, highest-tier
+    ranking, exact package and tier controls, loadability fallback, and regex fallback
+    when automatic resolution finds no usable model.
+  public_impact: public
+  decision: accepted
+  evidence_subject: 'feat: select the highest model size per default'
+  target_entry_key: entry-0001
+  target_entry_id: entry-0001
+  notes: Covered by the existing model-selection release entry.
+- sha: 0bbdd98af3475ece09990ba78ed581194118e4d0
+  source_ref: git:0bbdd98af3475ece09990ba78ed581194118e4d0
+  short_sha: 0bbdd98
+  changed_paths:
+  - .ledger/ledger.toml
+  - .ledger/releaseledger/.ledger-project.toml
+  - .ledger/releaseledger/.releaseledger-migration.jsonl
+  - .ledger/releaseledger/config.toml
+  - .ledger/releaseledger/data/.ledger-project.toml
+  - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.3/audit/commit-audit.yaml
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.3/entries/entry-0001.md
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.3/entries/entry-0002.md
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.3/entries/entry-0003.md
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.3/release.md
+  - .ledger/releaseledger/migrations/ec65a07e-622a-4abd-bfe0-a8c67cf976c5.toml
+  - .ledger/releaseledger/write.lock
+  - .releaseledger/ledgers/main/indexes/entries.json
+  - .releaseledger/ledgers/main/indexes/releases.json
+  stats:
+    files_changed: 0
+    insertions: 56
+    deletions: 89
+  inspected: true
+  inspected_paths:
+  - .ledger/ledger.toml
+  - .ledger/releaseledger/config.toml
+  observed_behavior: Migrated releaseledger storage to the canonical .ledger layout;
+    this does not alter the published library API.
+  public_impact: internal
+  decision: internal
+  evidence_subject: Migrate releaseledger to canonical .ledger storage layout
+  notes: Internal ledger maintenance.
+- sha: e8e4ef10b4e38c0903e92b468c8cc386af6ad243
+  source_ref: git:e8e4ef10b4e38c0903e92b468c8cc386af6ad243
+  short_sha: e8e4ef1
+  changed_paths:
+  - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4/entries/entry-0001.md
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4/entries/entry-0002.md
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4/entries/entry-0003.md
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4/release.md
+  - CHANGELOG.md
+  stats:
+    files_changed: 0
+    insertions: 121
+    deletions: 0
+  inspected: true
+  inspected_paths:
+  - .pre-commit-config.yaml
+  observed_behavior: Applied repository pre-commit maintenance with no user-facing
+    package behavior change.
+  public_impact: internal
+  decision: internal
+  evidence_subject: 'chore: pre-commit'
+  notes: Internal tooling maintenance.
+- sha: a87e10768e492cc0a432a4c9d4366d8ad0a34322
+  source_ref: git:a87e10768e492cc0a432a4c9d4366d8ad0a34322
+  short_sha: a87e107
+  changed_paths:
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4/entries/entry-0001.md
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4/entries/entry-0002.md
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4/entries/entry-0003.md
+  stats:
+    files_changed: 0
+    insertions: 13
+    deletions: 12
+  inspected: true
+  inspected_paths:
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.4/release.md
+  observed_behavior: Applied repository pre-commit maintenance with no user-facing
+    package behavior change.
+  public_impact: internal
+  decision: internal
+  evidence_subject: 'chore: pre-commit'
+  notes: Internal tooling maintenance.
+- sha: ec5f339b8fa1a90bfe15516f845b7c489967fac2
+  source_ref: git:ec5f339b8fa1a90bfe15516f845b7c489967fac2
+  short_sha: ec5f339
+  changed_paths:
+  - .github/workflows/codecov.yml
+  - .github/workflows/tests.yml
+  - README.md
+  - docs/api.md
+  - docs/installation.md
+  - docs/integration.md
+  - docs/offsets.md
+  - docs/streaming.md
+  - phrasplit/__init__.py
+  - phrasplit/cli.py
+  - phrasplit/spacy_models.py
+  - phrasplit/splitter.py
+  - pyproject.toml
+  - setup.py
+  - tests/conftest.py
+  - tests/test_cli.py
+  - tests/test_comparison.py
+  - tests/test_offset_correctness.py
+  - tests/test_offsets.py
+  - tests/test_spacy_model_selection.py
+  - tests/test_splitter.py
+  - tests/test_stability.py
+  stats:
+    files_changed: 0
+    insertions: 497
+    deletions: 132
+  inspected: true
+  inspected_paths:
+  - .github/workflows/tests.yml
+  - .github/workflows/codecov.yml
+  - phrasplit/spacy_models.py
+  - phrasplit/splitter.py
+  - tests/conftest.py
+  - tests/test_spacy_model_selection.py
+  - README.md
+  - docs/streaming.md
+  - pyproject.toml
+  observed_behavior: Made backend-sensitive tests deterministic across base, no-model,
+    and official-model environments; corrected resolver diagnostic semantics and loader
+    error classification; synchronized public docs; and verified 0.3.4 packaging gates.
+  public_impact: public
+  decision: accepted
+  evidence_subject: Prepare phrasplit 0.3.4 release
+  notes: New release-readiness hardening entry; summarize reviewed behavior rather
+    than the commit subject.
