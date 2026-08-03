@@ -2,8 +2,13 @@
 
 from .abbreviations import get_abbreviations
 from .spacy_models import (
+    ExplicitSpacyModelError,
+    NoCompatibleSpacyModelError,
+    SpacyModelAttempt,
+    SpacyModelResolutionError,
     SpacyModelResolution,
     SpacyModelSize,
+    SpacyNotInstalledError,
     normalize_spacy_language,
     resolve_spacy_model,
 )
@@ -35,7 +40,12 @@ __all__ = [
     "Segment",
     "SplitSegment",
     "SpacyModelResolution",
+    "SpacyModelResolutionError",
+    "SpacyModelAttempt",
     "SpacyModelSize",
+    "SpacyNotInstalledError",
+    "NoCompatibleSpacyModelError",
+    "ExplicitSpacyModelError",
     "get_abbreviations",
     "split_clauses",
     "split_long_lines",

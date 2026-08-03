@@ -29,6 +29,7 @@ class TestStability:
                 assert seg0.sentence_idx == segi.sentence_idx
                 assert seg0.clause_idx == segi.clause_idx
 
+    @pytest.mark.spacy_model
     def test_same_input_same_output_spacy(self) -> None:
         """Test that same input produces same output (spaCy backend)."""
         pytest.importorskip("spacy")

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=61", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -53,6 +53,12 @@ dev = [
 
 [project.scripts]
 phrasplit = "phrasplit.cli:main"
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+markers = [
+    "spacy_model: requires an installed compatible spaCy language model",
+]
 
 [tool.setuptools_scm]
 write_to = "phrasplit/_version.py"

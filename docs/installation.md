@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Python 3.9 or higher
+- Python 3.10 or higher
 - click 8.0 or higher
 - rich 13.0 or higher
 - spaCy 3.5 or higher (optional, for high-accuracy mode)

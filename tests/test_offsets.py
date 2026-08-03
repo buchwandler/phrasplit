@@ -151,6 +151,7 @@ class TestSplitWithOffsets:
                     or text[seg.char_start - 1] in ".,;!?"
                 )
 
+    @pytest.mark.spacy_model
     def test_offsets_with_spacy(self) -> None:
         """Test offset accuracy with spaCy backend."""
         pytest.importorskip("spacy")
@@ -164,6 +165,7 @@ class TestSplitWithOffsets:
             extracted = text[seg.char_start : seg.char_end]
             assert seg.text.strip() == extracted.strip()
 
+    @pytest.mark.spacy_model
     def test_abbreviation_merge_with_quotes_offsets(self) -> None:
         """Test abbreviation merging with quotes in offset mode."""
         pytest.importorskip("spacy")
@@ -174,6 +176,7 @@ class TestSplitWithOffsets:
         for seg in segments:
             assert text[seg.char_start : seg.char_end] == seg.text
 
+    @pytest.mark.spacy_model
     def test_abbreviation_merge_with_brackets_offsets(self) -> None:
         """Test abbreviation merging with brackets in offset mode."""
         pytest.importorskip("spacy")
@@ -187,7 +190,9 @@ class TestSplitWithOffsets:
         for seg in segments:
             assert text[seg.char_start : seg.char_end] == seg.text
 
-    @pytest.mark.parametrize("use_spacy", [False, True])
+    @pytest.mark.parametrize(
+        "use_spacy", [False, pytest.param(True, marks=pytest.mark.spacy_model)]
+    )
     def test_dotted_acronyms_offsets(self, use_spacy: bool) -> None:
         """Test dotted acronyms are preserved in offset mode."""
         if use_spacy:
@@ -208,7 +213,9 @@ class TestSplitWithOffsets:
         for seg in segments:
             assert text[seg.char_start : seg.char_end] == seg.text
 
-    @pytest.mark.parametrize("use_spacy", [False, True])
+    @pytest.mark.parametrize(
+        "use_spacy", [False, pytest.param(True, marks=pytest.mark.spacy_model)]
+    )
     def test_url_offsets_with_www_and_bare_domains(self, use_spacy: bool) -> None:
         """Test offsets with www and bare-domain URLs."""
         if use_spacy:
@@ -229,7 +236,9 @@ class TestSplitWithOffsets:
         for seg in segments:
             assert text[seg.char_start : seg.char_end] == seg.text
 
-    @pytest.mark.parametrize("use_spacy", [False, True])
+    @pytest.mark.parametrize(
+        "use_spacy", [False, pytest.param(True, marks=pytest.mark.spacy_model)]
+    )
     def test_ellipsis_offsets_unicode_digits(self, use_spacy: bool) -> None:
         """Test ellipsis boundaries with unicode and digits in offset mode."""
         if use_spacy:
@@ -275,6 +284,7 @@ class TestOffsetCorrections:
         for seg_text, start, end in result:
             assert text[start:end] == seg_text
 
+    @pytest.mark.spacy_model
     def test_spacy_offsets_apply_corrections_ellipsis(self) -> None:
         """Test spaCy offsets apply ellipsis corrections."""
         pytest.importorskip("spacy")
@@ -288,6 +298,7 @@ class TestOffsetCorrections:
         ]
 
 
+@pytest.mark.spacy_model
 class TestSpacyOffsetChunking:
     """Tests for spaCy offset chunking on long text."""
 
@@ -753,6 +764,7 @@ class TestExactSliceInvariant:
             # Segments shouldn't be purely whitespace
             assert seg.text.strip(), f"Empty segment: {seg.id}"
 
+    @pytest.mark.spacy_model
     def test_exact_slice_with_spacy_backend(self) -> None:
         """Test exact-slice invariant with spaCy backend."""
         pytest.importorskip("spacy")
@@ -763,6 +775,7 @@ class TestExactSliceInvariant:
         for seg in segments:
             assert text[seg.char_start : seg.char_end] == seg.text
 
+    @pytest.mark.spacy_model
     def test_exact_slice_with_max_chars_spacy(self) -> None:
         """Test exact-slice with max_chars using spaCy backend."""
         pytest.importorskip("spacy")

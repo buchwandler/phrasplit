@@ -33,7 +33,9 @@ def _assert_offsets_valid(text: str, segments) -> None:
         "A: one. B: two. C: three.",
     ],
 )
-@pytest.mark.parametrize("use_spacy", [False, True])
+@pytest.mark.parametrize(
+    "use_spacy", [False, pytest.param(True, marks=pytest.mark.spacy_model)]
+)
 def test_regression_strings_offsets(text: str, use_spacy: bool) -> None:
     if use_spacy:
         pytest.importorskip("spacy")
@@ -43,7 +45,9 @@ def test_regression_strings_offsets(text: str, use_spacy: bool) -> None:
     _assert_offsets_valid(text, segments)
 
 
-@pytest.mark.parametrize("use_spacy", [False, True])
+@pytest.mark.parametrize(
+    "use_spacy", [False, pytest.param(True, marks=pytest.mark.spacy_model)]
+)
 def test_clause_offsets_for_repeated_phrases(use_spacy: bool) -> None:
     if use_spacy:
         pytest.importorskip("spacy")
@@ -54,7 +58,9 @@ def test_clause_offsets_for_repeated_phrases(use_spacy: bool) -> None:
     _assert_offsets_valid(text, segments)
 
 
-@pytest.mark.parametrize("use_spacy", [False, True])
+@pytest.mark.parametrize(
+    "use_spacy", [False, pytest.param(True, marks=pytest.mark.spacy_model)]
+)
 def test_punctuation_and_correction_edges(use_spacy: bool) -> None:
     if use_spacy:
         pytest.importorskip("spacy")
@@ -65,7 +71,9 @@ def test_punctuation_and_correction_edges(use_spacy: bool) -> None:
     _assert_offsets_valid(text, segments)
 
 
-@pytest.mark.parametrize("use_spacy", [False, True])
+@pytest.mark.parametrize(
+    "use_spacy", [False, pytest.param(True, marks=pytest.mark.spacy_model)]
+)
 def test_paragraph_boundaries_preserved(use_spacy: bool) -> None:
     if use_spacy:
         pytest.importorskip("spacy")

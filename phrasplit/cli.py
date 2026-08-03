@@ -113,8 +113,9 @@ def sentences(
 
     INPUT_FILE: Path to input file, or '-' for stdin. Reads from stdin if omitted.
 
-    By default, uses spaCy if available for best accuracy. Use --simple for
-    faster regex-based splitting that doesn't require spaCy.
+    By default, selects the highest-quality compatible installed and loadable spaCy
+    model for the requested language, or falls back to regex. Use --simple to force
+    regex-based splitting without spaCy.
     """
     try:
         text = read_input(input_file)
@@ -194,8 +195,9 @@ def clauses(
 
     INPUT_FILE: Path to input file, or '-' for stdin. Reads from stdin if omitted.
 
-    By default, uses spaCy if available for best accuracy. Use --simple for
-    faster regex-based splitting that doesn't require spaCy.
+    By default, selects the highest-quality compatible installed and loadable spaCy
+    model for the requested language, or falls back to regex. Use --simple to force
+    regex-based splitting without spaCy.
     """
     try:
         text = read_input(input_file)
@@ -310,8 +312,9 @@ def longlines(
 
     INPUT_FILE: Path to input file, or '-' for stdin. Reads from stdin if omitted.
 
-    By default, uses spaCy if available for best accuracy. Use --simple for
-    faster regex-based splitting that doesn't require spaCy.
+    By default, selects the highest-quality compatible installed and loadable spaCy
+    model for the requested language, or falls back to regex. Use --simple to force
+    regex-based splitting without spaCy.
     """
     try:
         text = read_input(input_file)

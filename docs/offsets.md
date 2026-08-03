@@ -124,7 +124,7 @@ segments = split_with_offsets(text, mode="clause")
 ### Backend Selection
 
 ```python
-# Auto-detect (uses spaCy if available)
+# Auto-select a compatible installed/loadable model, otherwise use regex
 segments = split_with_offsets(text)
 
 # Force spaCy (more accurate)
@@ -133,6 +133,26 @@ segments = split_with_offsets(text, use_spacy=True)
 # Force regex (faster, no dependencies)
 segments = split_with_offsets(text, use_spacy=False)
 ```
+
+### Optional inline XHTML markup
+
+The regex backend can preserve balanced inline XHTML tags with `inline_markup=True`.
+The option is opt-in, keeps exact source slices, and rejects an explicit spaCy backend.
+Plain-text behavior is unchanged when it is omitted.
+
+```python
+from phrasplit import split_with_offsets
+
+text = "One. <em>Two.</em> Three."
+segments = split_with_offsets(text, use_spacy=False, inline_markup=True)
+assert [segment.text for segment in segments] == [
+    "One.", "<em>Two.</em>", "Three."
+]
+assert all(text[s.char_start:s.char_end] == s.text for s in segments)
+```
+
+Passing `inline_markup=True` with `use_spacy=True` raises `ValueError` because this
+mode depends on regex tag balancing.
 
 ### Max Length Splitting
 
@@ -355,6 +375,6 @@ segments = split_with_offsets(text, mode=mode)
 
 ## See Also
 
-- {doc}`streaming` - Streaming iterator API
+- {doc}`streaming` - Iterator API and current materialization limits
 - {doc}`api` - Complete API reference
 - {doc}`examples` - More examples

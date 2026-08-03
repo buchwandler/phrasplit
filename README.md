@@ -1,7 +1,7 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/phrasplit)](https://pypi.org/project/phrasplit/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/phrasplit)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/phrasplit)
-[![codecov](https://codecov.io/gh/holgern/phrasplit/graph/badge.svg?token=iCHXwbjAXG)](https://codecov.io/gh/holgern/phrasplit)
+[![codecov](https://codecov.io/gh/buchwandler/phrasplit/graph/badge.svg?token=iCHXwbjAXG)](https://codecov.io/gh/buchwandler/phrasplit)
 
 # phrasplit
 
@@ -48,7 +48,8 @@ python -m spacy download en_core_web_sm
 | **Simple** | ~60x faster | ~85-90%  | None (regex only)       | Simple text, speed-critical apps |
 | **spaCy**  | Baseline    | ~95%+    | spaCy + models (~500MB) | Complex text, best accuracy      |
 
-Benchmark results (1000 sentences):
+Illustrative benchmark results (1000 sentences; recorded before 0.3.4 without a
+retained hardware, Python, or model-version manifest):
 
 - spaCy: 1091ms
 - Simple: 17ms (63x faster)
@@ -74,7 +75,7 @@ sentences = split_sentences(text)
 # Force simple mode (even if spaCy is installed)
 sentences = split_sentences(text, use_spacy=False)
 
-# Force spaCy mode (error if not installed)
+# Force spaCy mode (requires spaCy and a compatible local model)
 sentences = split_sentences(text, use_spacy=True)
 ```
 
@@ -212,13 +213,13 @@ warnings = validate_no_placeholder_breaks(
 )
 
 # Option 2: Escape markup, segment, then unescape each segment
-# (See docs/offsets.rst for detailed workflow)
+# (See docs/offsets.md for detailed workflow)
 ```
 
 ### Command Line Interface
 
 ```bash
-# Split into sentences (auto-detects spaCy or uses simple mode)
+# Split into sentences (selects a compatible local model or uses regex)
 phrasplit sentences input.txt -o output.txt
 
 # Force simple mode (60x faster, no spaCy required)
@@ -268,12 +269,14 @@ Split text into sentences.
 - `use_spacy`: Choose implementation:
   - `None` (default): Use the best installed compatible model, or regex if none is
     loadable
-  - `True`: Force spaCy mode (raises ImportError if not installed)
+  - `True`: Require spaCy and a compatible loadable model
   - `False`: Force simple regex mode
 
 **Returns:** List of sentences
 
-**Raises:** `ImportError` if `use_spacy=True` but spaCy is not installed
+**Raises:** `SpacyNotInstalledError` when forced spaCy is not installed,
+`NoCompatibleSpacyModelError` when no compatible model loads, or
+`ExplicitSpacyModelError` when an explicit model fails.
 
 ### `split_clauses(text, language_model=None, use_spacy=None, language="en", model_size=None)`
 
@@ -336,6 +339,26 @@ Split lines exceeding max_length at sentence/clause boundaries.
 **Returns:** List of lines, each within max_length (except single words exceeding limit)
 
 **Raises:** `ValueError` if max_length is less than 1
+
+### `split_with_offsets(text, mode="sentence", use_spacy=None, language_model=None, language="en", model_size=None, inline_markup=False)`
+
+Returns exact-slice segments with stable IDs and character offsets. `inline_markup=True`
+is an opt-in regex-only mode for balanced inline XHTML tags; passing it with
+`use_spacy=True` raises `ValueError`.
+
+```python
+from phrasplit import split_with_offsets
+
+text = "One. <em>Two.</em> Three."
+segments = split_with_offsets(text, use_spacy=False, inline_markup=True)
+assert all(text[s.char_start:s.char_end] == s.text for s in segments)
+```
+
+### `iter_split_with_offsets(...)`
+
+This iterator currently delegates to `split_with_offsets()` and materializes the full
+list before yielding. It preserves exact offsets but does not yet provide bounded-memory
+or incremental streaming behavior.
 
 ## Use Cases
 
@@ -415,10 +438,11 @@ for paragraph in split_paragraphs(text):
 
 ### Upgrading from Previous Versions
 
-Version 1.x made spaCy optional. Your existing code continues to work:
+Version 0.3.4 keeps spaCy optional while making automatic model selection local-only.
+Existing code continues to work:
 
 ```python
-# Old code (still works, auto-uses spaCy if installed)
+# Existing code (still works, auto-selects a compatible installed model or regex)
 from phrasplit import split_sentences
 sentences = split_sentences(text)
 

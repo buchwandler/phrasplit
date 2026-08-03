@@ -11,16 +11,22 @@ from phrasplit import split_sentences
 
 class FakeSpacy:
     def __init__(
-        self, installed: list[str], unloadable: set[str] | None = None
+        self,
+        installed: list[str],
+        unloadable: set[str] | None = None,
+        import_fail: set[str] | None = None,
     ) -> None:
         self.util = SimpleNamespace(get_installed_models=lambda: installed)
         self.unloadable = unloadable or set()
+        self.import_fail = import_fail or set()
         self.loaded: list[str] = []
 
     def load(self, name: str) -> object:
         self.loaded.append(name)
         if name in self.unloadable:
             raise OSError(f"cannot load {name}")
+        if name in self.import_fail:
+            raise ImportError(f"dependency failed while loading {name}")
         return SimpleNamespace(name=name)
 
 
@@ -122,6 +128,95 @@ def test_explicit_unloadable_model_fails_immediately(
     with pytest.raises(models.ExplicitSpacyModelError, match="failed to load|missing"):
         models.resolve_spacy_model(language="en", model="en_core_web_sm", require=True)
     assert fake.loaded == ["en_core_web_sm"]
+    with pytest.raises(models.ExplicitSpacyModelError) as caught:
+        models.resolve_spacy_model(language="en", model="en_core_web_sm", require=True)
+    assert caught.value.resolution is not None
+    assert caught.value.resolution.available is True
+    assert caught.value.resolution.loadable is False
+
+
+def test_explicit_missing_model_reports_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeSpacy([])
+    install_fake_spacy(monkeypatch, fake)
+    monkeypatch.setattr(
+        models,
+        "_load_model",
+        lambda _spacy, _model: (_ for _ in ()).throw(OSError("missing")),
+    )
+
+    with pytest.raises(models.ExplicitSpacyModelError) as caught:
+        models.resolve_spacy_model(
+            language="en", model="definitely_missing_model", require=True
+        )
+    assert caught.value.resolution is not None
+    assert caught.value.resolution.available is False
+    assert caught.value.resolution.loadable is False
+
+
+def test_loader_import_error_is_explicit_model_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeSpacy(["en_core_web_sm"], import_fail={"en_core_web_sm"})
+    install_fake_spacy(monkeypatch, fake)
+
+    with pytest.raises(
+        models.ExplicitSpacyModelError, match="dependency failed"
+    ) as caught:
+        models.resolve_spacy_model(language="en", model="en_core_web_sm", require=True)
+    assert isinstance(caught.value.__cause__, ImportError)
+
+
+def test_distribution_metadata_is_used_without_spacy_utility(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = SimpleNamespace(
+        util=SimpleNamespace(), load=lambda name: SimpleNamespace(name=name)
+    )
+    monkeypatch.setattr(models, "_get_spacy", lambda: fake)
+    monkeypatch.setattr(models, "_distribution_model_names", lambda: {"en_core_web_sm"})
+    assert (
+        models.resolve_spacy_model(language="en", require=True).model
+        == "en_core_web_sm"
+    )
+
+
+def test_invalid_language_and_size_are_rejected() -> None:
+    with pytest.raises(ValueError, match="language"):
+        models.resolve_spacy_model(language="english!!")
+    with pytest.raises(ValueError, match="size"):
+        models.resolve_spacy_model(language="en", size="xl")  # type: ignore[arg-type]
+
+
+def test_model_size_warning_for_explicit_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeSpacy(["en_core_web_sm"])
+    install_fake_spacy(monkeypatch, fake)
+    with pytest.warns(UserWarning, match="ignored"):
+        resolution = models.resolve_spacy_model(
+            language="en", model="en_core_web_sm", size="lg", require=True
+        )
+    assert resolution.model == "en_core_web_sm"
+
+
+def test_model_cache_reuse_and_clear(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeSpacy(["en_core_web_sm"])
+    install_fake_spacy(monkeypatch, fake)
+    models.resolve_spacy_model(language="en", model="en_core_web_sm", require=True)
+    models.resolve_spacy_model(language="en", model="en_core_web_sm", require=True)
+    assert fake.loaded == ["en_core_web_sm"]
+    assert models.get_cached_spacy_model("en_core_web_sm") is not None
+    models.clear_spacy_model_cache()
+    assert models.get_cached_spacy_model("en_core_web_sm") is None
+
+
+def test_public_resolver_types_are_exported() -> None:
+    import phrasplit
+
+    assert phrasplit.SpacyModelAttempt is models.SpacyModelAttempt
+    assert phrasplit.ExplicitSpacyModelError is models.ExplicitSpacyModelError
 
 
 def test_optional_resolution_without_spacy_returns_no_model(

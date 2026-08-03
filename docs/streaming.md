@@ -1,18 +1,16 @@
-# Streaming API
+# Iterator API
 
 ## Overview
 
-The streaming API provides memory-efficient, incremental processing of text segments.
-Instead of loading all segments into memory at once, the iterator yields segments one by
-one in document order.
+The iterator API provides a generator-shaped facade over offset-preserving segmentation.
+The current implementation computes the complete result of `split_with_offsets()` before
+yielding, so it does not yet provide incremental parsing or bounded memory.
 
 This is particularly useful for:
 
-- **Large documents**: Process multi-gigabyte texts without loading all segments into
-  memory
-- **Real-time synthesis**: Start TTS processing before all segmentation is complete
-- **Pipeline integration**: Stream segments through processing stages
-- **Low-latency applications**: Begin output as soon as first segment is ready
+- **Pipeline integration**: Feed a list-backed result into iterator-oriented stages
+- **Document order**: Consume segments through a standard iterator interface
+- **Future compatibility**: Adopt incremental behavior later without changing callers
 
 ## Iterator Function
 
@@ -51,16 +49,17 @@ for seg in iter_split_with_offsets(text):
     segments.append(seg)
 ```
 
-### No Global State
+### Backend state
 
-Each iterator is independent with no shared state:
+Each iterator has its own result sequence, but model loading and CLI diagnostics use the
+module-level state documented by the implementation:
 
 ```python
 # Safe to run multiple iterators
 iter1 = iter_split_with_offsets(text1)
 iter2 = iter_split_with_offsets(text2)
 
-# No interference between iterations
+# Results remain independent even though model caches may be reused
 seg1 = next(iter1)
 seg2 = next(iter2)
 ```
@@ -228,13 +227,8 @@ result = find_first_mention(long_document, "important phrase")
 
 ### When to Use Iterator
 
-✅ Use `iter_split_with_offsets()` when:
-
-- Processing very large texts (> 1 MB)
-- Need to start output before all segmentation is done
-- Building real-time pipelines
-- Memory is constrained
-- Can process segments independently
+✅ Use `iter_split_with_offsets()` when an iterator interface fits the integration and
+the input is small enough for list-backed segmentation.
 
 ### When to Use List
 
@@ -254,16 +248,16 @@ result = find_first_mention(long_document, "important phrase")
 # List version - loads all segments into memory
 segments = split_with_offsets(huge_text)  # Uses O(n) memory
 
-# Iterator version - one segment at a time
-for seg in iter_split_with_offsets(huge_text):  # Uses O(1) memory
+# Iterator facade - the underlying list is materialized before yielding
+for seg in iter_split_with_offsets(text):
     process(seg)
 ```
 
 ### Time to First Segment
 
-The iterator has the same time-to-first-segment as the list version since the current
-implementation processes all segments upfront. A future optimization could make this
-truly streaming.
+The iterator has the same time-to-first-segment and memory characteristics as the list
+version since the current implementation processes all segments upfront. A future
+optimization could make this truly incremental.
 
 ```{note}
 Current implementation note: The iterator currently uses `split_with_offsets()` internally and yields from the result. A future version may implement true streaming for faster time-to-first-segment.
@@ -283,15 +277,15 @@ segments_list = split_with_offsets(text)
 
 ## Best Practices
 
-1. **Process Immediately**
+1. **Process Through the Iterator Interface**
 
    ```python
-   # Good - process each segment as it arrives
+   # Good - process each yielded segment
    for seg in iter_split_with_offsets(text):
        result = process(seg)
        save(result)
 
-   # Bad - defeats purpose of streaming
+   # This is equivalent to the current implementation's internal materialization
    all_segments = list(iter_split_with_offsets(text))
    ```
 

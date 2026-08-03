@@ -107,17 +107,33 @@ class TestSentencesCommand:
         assert result.exit_code == 1
         assert "File not found" in result.output
 
-    def test_sentences_with_model_option(self, tmp_path: Path) -> None:
-        """Test sentences command with custom model option."""
+    def test_sentences_with_model_option(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """Test successful explicit model handling through a controlled mock."""
         test_file = tmp_path / "input.txt"
         test_file.write_text("Test sentence.")
 
+        monkeypatch.setattr(
+            "phrasplit.cli.split_sentences", lambda *args, **kwargs: ["Test sentence."]
+        )
+
         runner = CliRunner()
-        # Using default model should work
         result = runner.invoke(
             main, ["sentences", str(test_file), "-m", "en_core_web_sm"]
         )
         assert result.exit_code == 0
+
+    def test_sentences_with_missing_model_fails(self, tmp_path: Path) -> None:
+        """Test that an explicit unavailable model is reported as an error."""
+        test_file = tmp_path / "input.txt"
+        test_file.write_text("Test sentence.")
+
+        result = CliRunner().invoke(
+            main, ["sentences", str(test_file), "-m", "definitely_missing_model"]
+        )
+        assert result.exit_code != 0
+        assert "explicit" in result.output.lower() or "model" in result.output.lower()
 
 
 class TestClausesCommand:

@@ -28,6 +28,7 @@ class TestSpacyVsSimpleComparison:
     """Compare spaCy and simple implementations on same tests."""
 
     @pytest.mark.parametrize("text,expected_range", COMPARISON_TEST_CASES)
+    @pytest.mark.spacy_model
     def test_sentence_count_spacy(
         self, text: str, expected_range: tuple[int, int]
     ) -> None:
@@ -54,6 +55,7 @@ class TestSpacyVsSimpleComparison:
         )
         assert min_expected <= len(result) <= max_expected + 1, msg
 
+    @pytest.mark.spacy_model
     def test_direct_comparison(self) -> None:
         """Direct comparison of outputs."""
         test_text = (
@@ -106,6 +108,7 @@ class TestAccuracyMetrics:
         )
 
 
+@pytest.mark.spacy_model
 def test_performance_indicator() -> None:
     """Quick performance comparison (not a rigorous benchmark)."""
     import time

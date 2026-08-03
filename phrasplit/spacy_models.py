@@ -253,6 +253,7 @@ def _empty_resolution(
     candidates: tuple[str, ...] = (),
     attempts: tuple[SpacyModelAttempt, ...] = (),
     diagnostics: tuple[str, ...] = (),
+    available: bool | None = None,
 ) -> SpacyModelResolution:
     return SpacyModelResolution(
         language=language,
@@ -262,7 +263,7 @@ def _empty_resolution(
         requested_size=size,
         candidates=candidates,
         attempts=attempts,
-        available=bool(candidates),
+        available=bool(candidates) if available is None else available,
         loadable=False,
         diagnostics=diagnostics,
     )
@@ -309,25 +310,10 @@ def resolve_spacy_model(
 
     if requested_model:
         candidate = requested_model
+        installed = set(installed_spacy_models())
+        candidate_available = candidate.lower().replace("-", "_") in installed
         try:
             _load_model(spacy, candidate)
-        except ImportError as exc:
-            raise SpacyNotInstalledError(
-                f"spaCy is not installed; cannot load the explicit model '{candidate}'."
-            ) from exc
-        except OSError as exc:
-            resolution = _empty_resolution(
-                language=normalized_language,
-                model=candidate,
-                size=size,
-                candidates=(candidate,),
-                attempts=(SpacyModelAttempt(candidate, False, str(exc)),),
-                diagnostics=(f"explicit model '{candidate}' is missing",),
-            )
-            raise ExplicitSpacyModelError(
-                f"Explicit spaCy model '{candidate}' is missing or not installed.",
-                resolution=resolution,
-            ) from exc
         except Exception as exc:
             resolution = _empty_resolution(
                 language=normalized_language,
@@ -335,11 +321,19 @@ def resolve_spacy_model(
                 size=size,
                 candidates=(candidate,),
                 attempts=(SpacyModelAttempt(candidate, False, str(exc)),),
-                diagnostics=(f"explicit model '{candidate}' failed to load",),
+                diagnostics=(
+                    f"explicit model '{candidate}' "
+                    f"{'is missing' if not candidate_available else 'failed to load'}",
+                ),
+                available=candidate_available,
+            )
+            status = (
+                "is missing or not installed"
+                if not candidate_available
+                else "is installed but failed to load"
             )
             raise ExplicitSpacyModelError(
-                f"Explicit spaCy model '{candidate}' is installed but failed to "
-                f"load: {exc}",
+                f"Explicit spaCy model '{candidate}' {status}: {exc}",
                 resolution=resolution,
             ) from exc
         return SpacyModelResolution(

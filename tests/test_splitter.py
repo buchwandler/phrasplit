@@ -57,6 +57,7 @@ class TestSplitSentences:
         assert len(result) == 1
         assert any("..." in s for s in result)
 
+    @pytest.mark.spacy_model
     def test_abbreviation_merge_with_quotes(self) -> None:
         """Test merging abbreviations when next sentence starts with quotes."""
         pytest.importorskip("spacy")
@@ -65,6 +66,7 @@ class TestSplitSentences:
         result = split_sentences(text, use_spacy=True)
         assert result == ['Dr. "Smith" arrived.']
 
+    @pytest.mark.spacy_model
     def test_abbreviation_merge_with_brackets(self) -> None:
         """Test merging abbreviations when next sentence starts with brackets."""
         pytest.importorskip("spacy")
@@ -74,7 +76,9 @@ class TestSplitSentences:
         assert result[0] == "Prof. (Müller) sagte nein."
         assert result[1] == "Dann ging er."
 
-    @pytest.mark.parametrize("use_spacy", [False, True])
+    @pytest.mark.parametrize(
+        "use_spacy", [False, pytest.param(True, marks=pytest.mark.spacy_model)]
+    )
     def test_dotted_acronym_us(self, use_spacy: bool) -> None:
         """Test dotted acronyms like U.S. don't split incorrectly."""
         if use_spacy:
@@ -84,7 +88,9 @@ class TestSplitSentences:
         result = split_sentences(text, use_spacy=use_spacy)
         assert result == ["He lives in the U.S.", "He moved last year."]
 
-    @pytest.mark.parametrize("use_spacy", [False, True])
+    @pytest.mark.parametrize(
+        "use_spacy", [False, pytest.param(True, marks=pytest.mark.spacy_model)]
+    )
     def test_dotted_acronym_locale(self, use_spacy: bool) -> None:
         """Test locale abbreviations like z.B. are kept intact."""
         if use_spacy:
@@ -94,7 +100,9 @@ class TestSplitSentences:
         result = split_sentences(text, use_spacy=use_spacy)
         assert result == ["Das ist z.B. gut.", "Wirklich."]
 
-    @pytest.mark.parametrize("use_spacy", [False, True])
+    @pytest.mark.parametrize(
+        "use_spacy", [False, pytest.param(True, marks=pytest.mark.spacy_model)]
+    )
     def test_urls_with_www_and_domains(self, use_spacy: bool) -> None:
         """Test URLs with www and bare domains remain intact."""
         if use_spacy:
@@ -108,7 +116,9 @@ class TestSplitSentences:
         result = split_sentences(text, use_spacy=use_spacy)
         assert result == ["Visit example.com/path).", "Then continue."]
 
-    @pytest.mark.parametrize("use_spacy", [False, True])
+    @pytest.mark.parametrize(
+        "use_spacy", [False, pytest.param(True, marks=pytest.mark.spacy_model)]
+    )
     def test_ellipsis_unicode_and_digits(self, use_spacy: bool) -> None:
         """Test ellipsis splitting with unicode uppercase and digits."""
         if use_spacy:
@@ -125,7 +135,9 @@ class TestSplitSentences:
         assert result[0] == "Wait..."
         assert result[1].startswith("2025")
 
-    @pytest.mark.parametrize("use_spacy", [False, True])
+    @pytest.mark.parametrize(
+        "use_spacy", [False, pytest.param(True, marks=pytest.mark.spacy_model)]
+    )
     def test_ellipsis_lowercase_no_split(self, use_spacy: bool) -> None:
         """Test ellipsis does not split before lowercase starts."""
         if use_spacy:
@@ -1124,6 +1136,7 @@ class TestSplitSentencesColonOption:
             result_false = split_sentences(text, split_on_colon=False, use_spacy=False)
         assert result_true == result_false
 
+    @pytest.mark.spacy_model
     def test_colon_handling_delegated_to_spacy(self) -> None:
         """Test that colon handling is delegated to spaCy."""
         text = "Warning: Do not proceed. Note: This is final."

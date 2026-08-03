@@ -878,8 +878,9 @@ def split_sentences(
     """
     Split text into sentences.
 
-    By default, uses spaCy if available for best accuracy, otherwise falls back
-    to regex-based splitting. You can force a specific implementation with use_spacy.
+    By default, selects the highest-quality compatible installed and loadable spaCy
+    model for the requested language, otherwise falls back to regex-based splitting.
+    You can force a specific implementation with ``use_spacy``.
 
     Args:
         text: Input text
@@ -892,25 +893,29 @@ def split_sentences(
         split_on_colon: Deprecated. Kept for API compatibility (currently unused).
             spaCy's default colon behavior is used. Default is True.
         use_spacy: Choose implementation:
-            ``None`` (default) auto-detects spaCy and uses it if available.
-            ``True`` forces spaCy and raises ImportError if not installed.
+            ``None`` (default) selects a compatible local model or uses regex.
+            ``True`` requires spaCy and a compatible loadable model.
             ``False`` forces simple regex-based splitting without spaCy.
+        language: Language or locale hint used for model selection and abbreviations.
+        model_size: Optional exact model tier (``sm``, ``md``, ``lg``, or ``trf``).
 
     Returns:
         List of sentences
 
     Raises:
-        ImportError: If use_spacy=True but spaCy is not installed
+        SpacyNotInstalledError: If ``use_spacy=True`` and spaCy is not installed.
+        NoCompatibleSpacyModelError: If forced spaCy has no compatible loadable model.
+        ExplicitSpacyModelError: If an explicit model cannot be loaded.
 
     Example::
 
-        >>> # Auto-detect (uses spaCy if available)
+        >>> # Auto-select a compatible local model, otherwise use regex
         >>> sentences = split_sentences(text)
         >>>
         >>> # Force simple mode (even if spaCy is installed)
         >>> sentences = split_sentences(text, use_spacy=False)
         >>>
-        >>> # Force spaCy mode (error if not installed)
+        >>> # Force spaCy mode (requires a compatible local model)
         >>> sentences = split_sentences(text, use_spacy=True)
 
     Note:
@@ -1039,15 +1044,19 @@ def split_clauses(
         text: Input text
         language_model: Language model name (e.g., "en_core_web_sm")
         use_spacy: Choose implementation:
-            ``None`` (default) auto-detects spaCy and uses it if available.
-            ``True`` forces spaCy and raises ImportError if not installed.
+            ``None`` (default) selects a compatible local model or uses regex.
+            ``True`` requires spaCy and a compatible loadable model.
             ``False`` forces simple regex-based splitting.
+        language: Language or locale hint used for model selection and abbreviations.
+        model_size: Optional exact model tier; it never falls back to another tier.
 
     Returns:
         List of comma-separated parts
 
     Raises:
-        ImportError: If use_spacy=True but spaCy is not installed
+        SpacyNotInstalledError: If ``use_spacy=True`` and spaCy is not installed.
+        NoCompatibleSpacyModelError: If forced spaCy has no compatible loadable model.
+        ExplicitSpacyModelError: If an explicit model cannot be loaded.
 
     Example::
 
@@ -1258,16 +1267,20 @@ def split_long_lines(
         max_length: Maximum line length in characters (must be positive)
         language_model: Language model name (e.g., "en_core_web_sm")
         use_spacy: Choose implementation:
-            ``None`` (default) auto-detects spaCy and uses it if available.
-            ``True`` forces spaCy and raises ImportError if not installed.
+            ``None`` (default) selects a compatible local model or uses regex.
+            ``True`` requires spaCy and a compatible loadable model.
             ``False`` forces simple regex-based splitting.
+        language: Language or locale hint used for model selection and abbreviations.
+        model_size: Optional exact model tier; it never falls back to another tier.
 
     Returns:
         List of lines, each within max_length (except single words exceeding limit)
 
     Raises:
         ValueError: If max_length is less than 1
-        ImportError: If use_spacy=True but spaCy is not installed
+        SpacyNotInstalledError: If ``use_spacy=True`` and spaCy is not installed.
+        NoCompatibleSpacyModelError: If forced spaCy has no compatible loadable model.
+        ExplicitSpacyModelError: If an explicit model cannot be loaded.
     """
     # Determine which implementation to use
     use_spacy, resolved_model, normalized_language, _ = _resolve_backend(
@@ -1320,9 +1333,11 @@ def split_text(
         split_on_colon: Deprecated. Kept for API compatibility (currently unused).
             spaCy's default colon behavior is used. Default is True.
         use_spacy: Choose implementation:
-            ``None`` (default) auto-detects spaCy and uses it if available.
-            ``True`` forces spaCy and raises ImportError if not installed.
+            ``None`` (default) selects a compatible installed/loadable model or regex.
+            ``True`` requires spaCy and a compatible loadable model.
             ``False`` forces simple regex-based splitting.
+        language: Language or locale hint used for model selection and abbreviations.
+        model_size: Optional exact model tier; it never falls back to another tier.
 
     Returns:
         List of Segment namedtuples, each containing:
@@ -1333,7 +1348,9 @@ def split_text(
 
     Raises:
         ValueError: If mode is not one of "paragraph", "sentence", "clause"
-        ImportError: If use_spacy=True but spaCy is not installed
+        SpacyNotInstalledError: If ``use_spacy=True`` and spaCy is not installed.
+        NoCompatibleSpacyModelError: If forced spaCy has no compatible loadable model.
+        ExplicitSpacyModelError: If an explicit model cannot be loaded.
 
     Example::
 
@@ -2385,10 +2402,13 @@ def split_with_offsets(
         text: Input text to split
         mode: Splitting granularity. Valid values are ``"paragraph"``,
             ``"sentence"``, and ``"clause"``.
-        use_spacy: Backend selection. ``None`` (default) auto-detects spaCy,
-            ``True`` forces spaCy, and ``False`` forces regex-based splitting.
+        use_spacy: Backend selection. ``None`` (default) selects a compatible
+            installed/loadable local model or falls back to regex; ``True`` forces
+            spaCy; ``False`` forces regex-based splitting.
         language_model: Language model name (e.g., "en_core_web_sm", "de_core_news_sm")
             Used for both spaCy model selection and abbreviation handling
+        language: Language or locale hint used for model selection and abbreviations.
+        model_size: Optional exact model tier; it never falls back to another tier.
         apply_corrections: Whether to apply post-processing corrections for
             common spaCy errors (URL splitting, abbreviation handling, ellipsis).
             Default is True. Only applies to spaCy mode.
@@ -2414,7 +2434,9 @@ def split_with_offsets(
 
     Raises:
         ValueError: If mode is invalid or max_chars < 1
-        ImportError: If use_spacy=True but spaCy is not installed
+        SpacyNotInstalledError: If ``use_spacy=True`` and spaCy is not installed.
+        NoCompatibleSpacyModelError: If forced spaCy has no compatible loadable model.
+        ExplicitSpacyModelError: If an explicit model cannot be loaded.
 
     Example::
 
@@ -2503,16 +2525,19 @@ def iter_split_with_offsets(
     max_chars: int | None = None,
     inline_markup: bool = False,
 ) -> Iterator[SplitSegment]:
-    """Streaming iterator variant of split_with_offsets().
+    """Iterator facade over :func:`split_with_offsets`.
 
-    Yields segments one by one in document order, enabling memory-efficient
-    processing of large texts and streaming TTS synthesis.
+    The current implementation computes the complete segment list before yielding.
+    It is useful for iterator-oriented integrations, but it does not yet provide
+    incremental parsing, bounded memory, or earlier time-to-first-segment behavior.
 
     Args:
         text: Input text to split
         mode: Splitting granularity ("paragraph", "sentence", or "clause")
         use_spacy: Backend selection (None=auto, True=spaCy, False=regex)
         language_model: Language model name for NLP/abbreviations
+        language: Language or locale hint used for model selection and abbreviations.
+        model_size: Optional exact model tier.
         apply_corrections: Whether to apply post-processing corrections for
             common spaCy errors (URL splitting, abbreviation handling, ellipsis).
             Default is True. Only applies to spaCy mode.
@@ -2532,8 +2557,9 @@ def iter_split_with_offsets(
 
     Note:
         - Segments are yielded in document order
-        - No global state or caching
         - Same offset guarantees as split_with_offsets()
+        - The underlying splitter may use its documented model cache/global diagnostic
+          state; callers must not interpret this facade as a thread-isolated stream.
     """
     # For now, use the non-streaming implementation and yield
     # In the future, this could be optimized for true streaming

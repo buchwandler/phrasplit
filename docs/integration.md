@@ -213,8 +213,8 @@ split_with_offsets(text, max_chars=0)  # raises ValueError
 # ValueError if mode is invalid
 split_with_offsets(text, mode="invalid")  # raises ValueError
 
-# ImportError if spaCy requested but not available
-split_with_offsets(text, use_spacy=True)  # raises ImportError if no spaCy
+# Forced spaCy requires both spaCy and a compatible local model
+split_with_offsets(text, use_spacy=True)  # raises a resolver error when unavailable
 ```
 
 ### Empty or Whitespace-Only Text
@@ -233,12 +233,14 @@ assert segments == []  # No non-whitespace content
 
 - **Regex backend** (`use_spacy=False`): 60x faster, good for simple text
 - **spaCy backend** (`use_spacy=True`): More accurate, better for complex text
-- **Auto-detect** (`use_spacy=None`, default): Uses spaCy if installed
+- **Auto-detect** (`use_spacy=None`, default): Uses the highest compatible installed
+  and loadable local model, otherwise regex
 
 ### Memory Usage
 
 - `split_with_offsets()`: Returns all segments at once (O(n) memory)
-- `iter_split_with_offsets()`: Streaming iterator (O(1) memory per segment)
+- `iter_split_with_offsets()`: Iterator facade that currently materializes the list
+  before yielding; it does not provide bounded-memory streaming yet
 
 For large documents (> 1 MB), consider using the iterator:
 

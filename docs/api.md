@@ -10,6 +10,11 @@ The stable resolver API is available directly from `phrasplit`:
 from phrasplit import (
     SpacyModelResolution,
     SpacyModelSize,
+    SpacyModelAttempt,
+    SpacyModelResolutionError,
+    SpacyNotInstalledError,
+    NoCompatibleSpacyModelError,
+    ExplicitSpacyModelError,
     normalize_spacy_language,
     resolve_spacy_model,
 )
@@ -25,6 +30,13 @@ entirely; `use_spacy=True` requires a loadable result; `use_spacy=None` uses spa
 when a compatible result exists and otherwise uses regex splitting. Downstream consumers
 can use `language`, `language_model`, and `model_size` with the same semantics as the
 splitting APIs.
+
+`SpacyModelResolutionError` is the base class for resolver failures. Forced
+resolution raises `SpacyNotInstalledError` when spaCy is absent or
+`NoCompatibleSpacyModelError` when no compatible installed model loads. An explicit
+package failure raises `ExplicitSpacyModelError`; its `resolution` field contains
+attempts and accurate `available`/`loadable` flags. `SpacyModelAttempt` records each
+candidate load outcome.
 
 ## Main Functions
 
@@ -142,6 +154,18 @@ lines = split_long_lines(text, max_length=40)
 # Use simple mode
 lines = split_long_lines(text, max_length=40, use_spacy=False)
 ```
+
+### Offset APIs
+
+```{eval-rst}
+.. autofunction:: phrasplit.split_with_offsets
+.. autofunction:: phrasplit.iter_split_with_offsets
+```
+
+Both APIs preserve `segment.text == text[segment.char_start:segment.char_end]`.
+`inline_markup=True` is available only with the regex backend and raises `ValueError`
+when explicitly combined with spaCy. The iterator is currently a facade over the list
+API and does not claim incremental or bounded-memory processing.
 
 ## Data Types
 
