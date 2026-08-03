@@ -1,0 +1,7 @@
+{"schema": "releaseledger.migration-journal.v2", "phase": "staging", "migration_id": "ec65a07e-622a-4abd-bfe0-a8c67cf976c5", "plan_hash": "pending", "reason": "Migrate project to canonical releaseledger storage layout", "legacy_data_root": "/data/data/com.termux/files/home/src/phrasplit/.releaseledger", "target_data_root": "/data/data/com.termux/files/home/src/phrasplit/.ledger/releaseledger/data", "source_fingerprint": "sha256:19422e2c12a1dcb46c0560e73eb133ba0abb60d6f4483258bec7a2f175a5c66b"}
+{"phase": "activation-prepared", "migration_id": "ec65a07e-622a-4abd-bfe0-a8c67cf976c5", "data_action": "create", "config_action": "create"}
+{"phase": "canonical-activated", "migration_id": "ec65a07e-622a-4abd-bfe0-a8c67cf976c5"}
+{"phase": "indexes-rebuilt", "migration_id": "ec65a07e-622a-4abd-bfe0-a8c67cf976c5"}
+{"phase": "domain-verified", "migration_id": "ec65a07e-622a-4abd-bfe0-a8c67cf976c5"}
+{"phase": "receipt-written", "migration_id": "ec65a07e-622a-4abd-bfe0-a8c67cf976c5", "receipt_path": "/data/data/com.termux/files/home/src/phrasplit/.ledger/releaseledger/migrations/ec65a07e-622a-4abd-bfe0-a8c67cf976c5.toml"}
+{"phase": "complete", "migration_id": "ec65a07e-622a-4abd-bfe0-a8c67cf976c5"}

@@ -1,0 +1,7 @@
+schema_version = 1
+layout_version = 3
+project_uuid = "2e737fe2-71f6-11f1-aeb9-bbffefc1e809"
+tool = "releaseledger"
+mount = "data"
+storage = "project"
+project_name = "phrasplit"
