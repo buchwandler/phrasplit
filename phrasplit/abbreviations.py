@@ -172,6 +172,20 @@ ENGLISH_ABBREVIATIONS: set[str] = {
     "nos",
     "fig",
     "figs",
+    # Dates and numbered references
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Sept",
+    "Oct",
+    "Nov",
+    "Dec",
+    "No",
     # Geographic
     "Mt",
     "Ft",
@@ -989,6 +1003,7 @@ SENTENCE_ENDING_ABBREVIATIONS: set[str] = {
 SENTENCE_STARTERS: set[str] = {
     # English
     "The",
+    "All",
     "A",
     "An",
     "This",

@@ -154,6 +154,7 @@ def split_sentences_simple(
     language_model: str | None = None,
     *,
     language: str = "en",
+    apply_corrections: bool = True,
 ) -> list[str]:
     """
     Split text into sentences using regex-based rules (no spaCy required).
@@ -171,6 +172,8 @@ def split_sentences_simple(
         text: Input text to split
         language_model: Optional spaCy model name retained for compatibility.
         language: Independent language hint for abbreviation handling.
+        apply_corrections: Apply the same URL and abbreviation corrections as
+            the spaCy backend. Defaults to ``True``.
 
     Returns:
         List of sentences (non-empty, stripped)
@@ -180,9 +183,8 @@ def split_sentences_simple(
         ['Dr. Smith is here.', 'She has a Ph.D.']
 
     Note:
-        This function does not apply post-processing corrections like the
-        spaCy version (URL splitting, abbreviation merging). For best accuracy,
-        use split_sentences() with spaCy installed.
+        The fallback applies the shared URL and abbreviation corrections, but
+        remains less accurate than the spaCy implementation for complex text.
     """
     if not isinstance(text, str):
         raise ValueError("Input must be a string.")
@@ -213,6 +215,14 @@ def split_sentences_simple(
         # 1. Acronyms (U.S.A., J.R.R., z.B., etc.)
         text = patterns["acronyms"].sub(
             lambda m: m.group().replace(".", _PROTECTED_PERIOD), text
+        )
+
+        # A period before a number is a leading decimal (for example,
+        # ``p <= .001``), not a sentence terminator.
+        text = re.sub(
+            rf"(?<![\w{_PROTECTED_PERIOD}])\.(?=\d)",
+            _PROTECTED_PERIOD,
+            text,
         )
 
         # 2. Language-specific prefixes (Mr., Dr., Prof., etc.)
@@ -252,6 +262,14 @@ def split_sentences_simple(
         text = re.sub(
             rf"\b([A-Z]){_PROTECTED_PERIOD} ([A-Z]){_PROTECTED_PERIOD}",
             rf"\1{_PROTECTED_PERIOD}\2{_PROTECTED_PERIOD}",
+            text,
+        )
+
+        # Standalone capital-letter list markers are sentence-like items,
+        # while initials such as ``E. coli`` remain protected.
+        text = re.sub(
+            rf"\b[A-Z]{_PROTECTED_PERIOD}(?=\s+[A-Z])",
+            lambda m: f"{m.group()}{_SENTENCE_BOUNDARY}",
             text,
         )
 
@@ -303,10 +321,11 @@ def split_sentences_simple(
         # Protect quotes, brackets, and parentheses after sentence terminators
         text = re.sub(r'([.!?])(["\')\]}>]+)', replace_closing_punct, text)
 
-        # Mark sentence boundaries at terminal punctuation
+        # Mark sentence boundaries at terminal punctuation. Treat a run of
+        # question/exclamation marks as one terminal sequence so ``?!?`` does
+        # not produce three artificial sentences.
         text = text.replace(".", f".{_SENTENCE_BOUNDARY}")
-        text = text.replace("?", f"?{_SENTENCE_BOUNDARY}")
-        text = text.replace("!", f"!{_SENTENCE_BOUNDARY}")
+        text = re.sub(r"[!?]+", lambda m: f"{m.group()}{_SENTENCE_BOUNDARY}", text)
 
         # Restore closing punctuation AFTER sentence boundaries
         # They should be with the previous sentence
@@ -329,6 +348,16 @@ def split_sentences_simple(
             for s in text.split(_SENTENCE_BOUNDARY)
             if s.strip()
         ]
+
+        if apply_corrections:
+            # Import lazily to avoid the splitter <-> fallback module cycle.
+            from phrasplit.splitter import _apply_corrections
+
+            sentences = _apply_corrections(
+                sentences,
+                language_model,
+                language=language,
+            )
 
         return sentences
 

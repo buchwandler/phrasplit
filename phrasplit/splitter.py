@@ -528,7 +528,10 @@ def _split_after_dotted_abbreviation_boundaries(sentences: list[str]) -> list[st
     """Split acronym or enumeration boundaries before clear sentence starters."""
 
     result: list[str] = []
-    pattern = re.compile(r"\b(?:[A-Za-z]\.)+\s+")
+    # A doubled period is common when an acronym is also sentence-final,
+    # e.g. ``E.U.. But ...``. Keep the extra terminal period in the first
+    # segment while still recognizing the boundary.
+    pattern = re.compile(r"\b(?:[A-Za-z]\.)+\.?\s+")
     sentence_starters = get_sentence_starters()
     for sentence in sentences:
         boundaries = [
@@ -549,6 +552,43 @@ def _split_after_dotted_abbreviation_boundaries(sentences: list[str]) -> list[st
         remaining = sentence[start:].strip()
         if remaining:
             result.append(remaining)
+    return result
+
+
+def _split_after_sentence_ending_abbreviation_boundaries(
+    sentences: list[str],
+) -> list[str]:
+    """Split after sentence-ending abbreviations before clear starters."""
+
+    if not sentences:
+        return sentences
+
+    sentence_starters = get_sentence_starters()
+    result: list[str] = []
+    pattern = re.compile(r"\b([A-Za-z]+)\.\s+")
+
+    for sentence in sentences:
+        boundaries = [
+            match.end()
+            for match in pattern.finditer(sentence)
+            if match.group(1) in get_sentence_ending_abbreviations()
+            and (next_word := _extract_leading_word(sentence[match.end() :]))
+            and next_word in sentence_starters
+        ]
+        if not boundaries:
+            result.append(sentence)
+            continue
+
+        start = 0
+        for boundary in boundaries:
+            part = sentence[start:boundary].strip()
+            if part:
+                result.append(part)
+            start = boundary
+        remaining = sentence[start:].strip()
+        if remaining:
+            result.append(remaining)
+
     return result
 
 
@@ -583,6 +623,7 @@ def _apply_corrections(
     """
     # Repair acronym/enumeration boundaries before merging abbreviation splits.
     sentences = _split_after_dotted_abbreviation_boundaries(sentences)
+    sentences = _split_after_sentence_ending_abbreviation_boundaries(sentences)
 
     # First merge abbreviation splits (need to combine before other splits)
     sentences = _merge_abbreviation_splits(sentences, language_model, language=language)
@@ -889,7 +930,7 @@ def split_sentences(
             For simple mode: Used to determine language for abbreviation handling
         apply_corrections: Whether to apply post-processing corrections for
             common spaCy errors (URL splitting, abbreviation handling).
-            Default is True. Only applies to spaCy mode.
+            Default is True. The regex fallback applies the same corrections.
         split_on_colon: Deprecated. Kept for API compatibility (currently unused).
             spaCy's default colon behavior is used. Default is True.
         use_spacy: Choose implementation:
@@ -959,6 +1000,7 @@ def split_sentences(
             text,
             language_model,
             language=normalized_language,
+            apply_corrections=apply_corrections,
         )
 
 
@@ -1329,7 +1371,7 @@ def split_text(
         language_model: Language model name (e.g., "en_core_web_sm")
         apply_corrections: Whether to apply post-processing corrections for
             common spaCy errors (URL splitting, abbreviation handling).
-            Default is True. Only applies to spaCy mode and sentence/clause modes.
+            Default is True. Applies to sentence/clause modes for both backends.
         split_on_colon: Deprecated. Kept for API compatibility (currently unused).
             spaCy's default colon behavior is used. Default is True.
         use_spacy: Choose implementation:
@@ -1447,6 +1489,7 @@ def split_text(
                 para,
                 language_model,
                 language=normalized_language,
+                apply_corrections=apply_corrections,
             )
 
             if mode == "sentence":

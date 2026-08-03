@@ -595,20 +595,22 @@ class TestExactSliceInvariant:
     """Tests for exact-slice policy:
     segment.text == text[char_start:char_end]"""
 
-    def test_exact_slice_basic(self) -> None:
+    @pytest.mark.parametrize(
+        "use_spacy", [False, pytest.param(True, marks=pytest.mark.spacy_model)]
+    )
+    def test_exact_slice_basic(self, use_spacy: bool) -> None:
         """Test exact-slice invariant with simple text."""
         text = "Hello world. How are you?"
 
         for mode in ["paragraph", "sentence", "clause"]:
-            for use_spacy in [True, False]:
-                segments = split_with_offsets(text, mode=mode, use_spacy=use_spacy)
+            segments = split_with_offsets(text, mode=mode, use_spacy=use_spacy)
 
-                for seg in segments:
-                    # Exact-slice invariant: NO .strip() allowed
-                    assert text[seg.char_start : seg.char_end] == seg.text, (
-                        f"Invariant broken for mode={mode}, use_spacy={use_spacy}, "
-                        f"segment={seg.id}"
-                    )
+            for seg in segments:
+                # Exact-slice invariant: NO .strip() allowed
+                assert text[seg.char_start : seg.char_end] == seg.text, (
+                    f"Invariant broken for mode={mode}, use_spacy={use_spacy}, "
+                    f"segment={seg.id}"
+                )
 
     def test_exact_slice_with_leading_whitespace(self) -> None:
         """Test exact-slice with leading whitespace."""
