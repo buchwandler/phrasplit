@@ -60,8 +60,11 @@ pip install -e ".[nlp]"
 
 ## Installing spaCy Language Models
 
-If you installed with spaCy support, you'll need a language model. The default model is
-`en_core_web_sm` (English). Install it with:
+If you installed with spaCy support, install any local models you want available for
+automatic selection. Automatic mode chooses the highest installed and loadable tier
+(`trf > lg > md > sm`) and never downloads models itself.
+
+For example:
 
 ```bash
 python -m spacy download en_core_web_sm
@@ -108,7 +111,7 @@ print(split_sentences("Hello world. How are you?", use_spacy=False))
 - Good for straightforward text
 - Uses regex-based splitting
 
-**spaCy Mode (use_spacy=True, default if available)**
+**spaCy Mode (use_spacy=True)**
 
 - Requires spaCy and language models
 - Higher accuracy

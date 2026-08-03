@@ -6,10 +6,26 @@ from pathlib import Path
 import click
 from rich.console import Console
 
+from . import splitter as splitter_module
 from .splitter import split_clauses, split_long_lines, split_paragraphs, split_sentences
 
 console = Console()
 error_console = Console(stderr=True)
+
+
+def _print_model_diagnostic(*, language: str, simple: bool, verbose: bool) -> None:
+    if not verbose:
+        return
+    if simple or splitter_module.LAST_SPACY_MODEL is None:
+        error_console.print(
+            f"[dim]Using regex backend for language {language!r}; "
+            "no spaCy model selected.[/dim]"
+        )
+    else:
+        error_console.print(
+            f"[dim]Using spaCy model {splitter_module.LAST_SPACY_MODEL!r} "
+            f"for language {language!r}.[/dim]"
+        )
 
 
 def read_input(input_file: str | None) -> str:
@@ -61,19 +77,37 @@ def main() -> None:
 @click.option(
     "-m",
     "--model",
-    default="en_core_web_sm",
-    help="spaCy language model (default: en_core_web_sm)",
+    default=None,
+    help="Exact spaCy model package (default: automatic local selection)",
+)
+@click.option(
+    "--language",
+    default="en",
+    show_default=True,
+    help="Language hint used for automatic model selection and abbreviations",
+)
+@click.option(
+    "--model-size",
+    type=click.Choice(["sm", "md", "lg", "trf"]),
+    default=None,
+    help="Exact automatic model tier; never falls back to another tier",
 )
 @click.option(
     "--simple",
     is_flag=True,
     help="Use simple regex-based splitting (faster, no spaCy required)",
 )
+@click.option(
+    "--verbose", is_flag=True, help="Print backend and selected-model diagnostics"
+)
 def sentences(
     input_file: str | None,
     output: Path | None,
-    model: str,
+    model: str | None,
+    language: str,
+    model_size: str | None,
     simple: bool,
+    verbose: bool,
 ) -> None:
     """Split text into sentences.
 
@@ -90,8 +124,15 @@ def sentences(
 
     try:
         use_spacy = None if not simple else False
-        result = split_sentences(text, language_model=model, use_spacy=use_spacy)
-    except (ImportError, OSError) as e:
+        result = split_sentences(
+            text,
+            language_model=model,
+            language=language,
+            model_size=model_size,  # type: ignore[arg-type]
+            use_spacy=use_spacy,
+        )
+        _print_model_diagnostic(language=language, simple=simple, verbose=verbose)
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
         error_console.print(f"[red]Error:[/red] {e}")
         if isinstance(e, ImportError):
             error_console.print(
@@ -101,7 +142,10 @@ def sentences(
                 "[yellow]or install spaCy for better accuracy:[/yellow]"
             )
             error_console.print("  pip install phrasplit[nlp]")
-            error_console.print(f"  python -m spacy download {model}")
+            error_console.print(
+                "  Install a compatible local spaCy model; automatic mode never "
+                "downloads one."
+            )
         sys.exit(1)
 
     output_text = "\n".join(result)
@@ -119,19 +163,32 @@ def sentences(
 @click.option(
     "-m",
     "--model",
-    default="en_core_web_sm",
-    help="spaCy language model (default: en_core_web_sm)",
+    default=None,
+    help="Exact spaCy model package (default: automatic local selection)",
+)
+@click.option("--language", default="en", show_default=True, help="Language hint")
+@click.option(
+    "--model-size",
+    type=click.Choice(["sm", "md", "lg", "trf"]),
+    default=None,
+    help="Exact automatic model tier",
 )
 @click.option(
     "--simple",
     is_flag=True,
     help="Use simple regex-based splitting (faster, no spaCy required)",
 )
+@click.option(
+    "--verbose", is_flag=True, help="Print backend and selected-model diagnostics"
+)
 def clauses(
     input_file: str | None,
     output: Path | None,
-    model: str,
+    model: str | None,
+    language: str,
+    model_size: str | None,
     simple: bool,
+    verbose: bool,
 ) -> None:
     """Split text into clauses (at commas).
 
@@ -148,8 +205,15 @@ def clauses(
 
     try:
         use_spacy = None if not simple else False
-        result = split_clauses(text, language_model=model, use_spacy=use_spacy)
-    except (ImportError, OSError) as e:
+        result = split_clauses(
+            text,
+            language_model=model,
+            language=language,
+            model_size=model_size,  # type: ignore[arg-type]
+            use_spacy=use_spacy,
+        )
+        _print_model_diagnostic(language=language, simple=simple, verbose=verbose)
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
         error_console.print(f"[red]Error:[/red] {e}")
         if isinstance(e, ImportError):
             error_console.print(
@@ -159,7 +223,10 @@ def clauses(
                 "[yellow]or install spaCy for better accuracy:[/yellow]"
             )
             error_console.print("  pip install phrasplit[nlp]")
-            error_console.print(f"  python -m spacy download {model}")
+            error_console.print(
+                "  Install a compatible local spaCy model; automatic mode never "
+                "downloads one."
+            )
         sys.exit(1)
 
     output_text = "\n".join(result)
@@ -211,20 +278,33 @@ def paragraphs(
 @click.option(
     "-m",
     "--model",
-    default="en_core_web_sm",
-    help="spaCy language model (default: en_core_web_sm)",
+    default=None,
+    help="Exact spaCy model package (default: automatic local selection)",
+)
+@click.option("--language", default="en", show_default=True, help="Language hint")
+@click.option(
+    "--model-size",
+    type=click.Choice(["sm", "md", "lg", "trf"]),
+    default=None,
+    help="Exact automatic model tier",
 )
 @click.option(
     "--simple",
     is_flag=True,
     help="Use simple regex-based splitting (faster, no spaCy required)",
 )
+@click.option(
+    "--verbose", is_flag=True, help="Print backend and selected-model diagnostics"
+)
 def longlines(
     input_file: str | None,
     output: Path | None,
     max_length: int,
-    model: str,
+    model: str | None,
+    language: str,
+    model_size: str | None,
     simple: bool,
+    verbose: bool,
 ) -> None:
     """Split long lines at sentence/clause boundaries.
 
@@ -242,9 +322,15 @@ def longlines(
     try:
         use_spacy = None if not simple else False
         result = split_long_lines(
-            text, max_length=max_length, language_model=model, use_spacy=use_spacy
+            text,
+            max_length=max_length,
+            language_model=model,
+            language=language,
+            model_size=model_size,  # type: ignore[arg-type]
+            use_spacy=use_spacy,
         )
-    except (ImportError, OSError, ValueError) as e:
+        _print_model_diagnostic(language=language, simple=simple, verbose=verbose)
+    except (ImportError, OSError, RuntimeError, ValueError) as e:
         error_console.print(f"[red]Error:[/red] {e}")
         if isinstance(e, ImportError):
             error_console.print(
@@ -254,7 +340,10 @@ def longlines(
                 "[yellow]or install spaCy for better accuracy:[/yellow]"
             )
             error_console.print("  pip install phrasplit[nlp]")
-            error_console.print(f"  python -m spacy download {model}")
+            error_console.print(
+                "  Install a compatible local spaCy model; automatic mode never "
+                "downloads one."
+            )
         sys.exit(1)
 
     output_text = "\n".join(result)

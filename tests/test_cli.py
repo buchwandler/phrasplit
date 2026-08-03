@@ -260,6 +260,14 @@ class TestMainGroup:
         assert "paragraphs" in result.output
         assert "longlines" in result.output
 
+    def test_model_selection_options_are_exposed(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(main, ["sentences", "--help"])
+        assert result.exit_code == 0
+        assert "--language" in result.output
+        assert "--model-size" in result.output
+        assert "automatic" in result.output.lower()
+
     def test_sentences_help(self) -> None:
         """Test sentences --help."""
         runner = CliRunner()

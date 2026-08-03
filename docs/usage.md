@@ -35,19 +35,21 @@ sentences = split_sentences(text)
 
 ### Choosing Processing Mode
 
-phrasplit automatically detects if spaCy is available and uses the appropriate mode. You
-can explicitly control this with the `use_spacy` parameter:
+phrasplit resolves the highest installed and loadable model for the requested language
+(`trf > lg > md > sm`). If spaCy or a compatible model is unavailable, automatic mode
+falls back to regex. It never downloads models. You can explicitly control this with the
+`use_spacy` parameter:
 
 ```python
 # Automatic detection (default)
 sentences = split_sentences(text)
-# Uses spaCy if available, otherwise falls back to regex
+# Uses the best installed compatible model, otherwise falls back to regex
 
 # Force simple mode (no spaCy required)
 sentences = split_sentences(text, use_spacy=False)
 # Uses regex-based splitting, faster and lightweight
 
-# Force spaCy mode (will error if spaCy not installed)
+# Force spaCy mode (will error if spaCy or a compatible model is unavailable)
 sentences = split_sentences(text, use_spacy=True)
 # Uses spaCy NLP for higher accuracy
 ```
@@ -207,21 +209,28 @@ The splitting strategy:
 2. If still too long, split at clause boundaries (commas)
 3. If still too long, split at word boundaries
 
-## Using Different Language Models
+## Language and Model Selection
 
-All functions that use spaCy accept a `language_model` parameter:
+All splitting APIs accept an independent `language` hint and optional exact controls:
 
 ```python
 from phrasplit import split_sentences
 
-# Use a larger, more accurate model
-sentences = split_sentences(text, language_model="en_core_web_lg")
+# Highest installed English model
+sentences = split_sentences(text, language="en")
+
+# Highest installed German model
+sentences = split_sentences(german_text, language="de")
+
+# Exact package and exact tier
+sentences = split_sentences(text, language_model="en_core_web_sm")
+sentences = split_sentences(text, language="en", model_size="lg")
 
 # Use a model for another language
 sentences = split_sentences(german_text, language_model="de_core_news_sm")
 ```
 
-Make sure to download the model first:
+Make sure the exact model is installed locally first:
 
 ```bash
 python -m spacy download de_core_news_sm

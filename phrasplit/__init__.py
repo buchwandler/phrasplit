@@ -1,6 +1,12 @@
 """Phrasplit - Split text into sentences, clauses, or paragraphs."""
 
 from .abbreviations import get_abbreviations
+from .spacy_models import (
+    SpacyModelResolution,
+    SpacyModelSize,
+    normalize_spacy_language,
+    resolve_spacy_model,
+)
 from .splitter import (
     Segment,
     split_clauses,
@@ -28,6 +34,8 @@ __all__ = [
     "COMMON_PATTERNS",
     "Segment",
     "SplitSegment",
+    "SpacyModelResolution",
+    "SpacyModelSize",
     "get_abbreviations",
     "split_clauses",
     "split_long_lines",
@@ -36,6 +44,8 @@ __all__ = [
     "split_text",
     "split_with_offsets",
     "iter_split_with_offsets",
+    "normalize_spacy_language",
+    "resolve_spacy_model",
     "validate_no_placeholder_breaks",
     "suggest_splitting_mode",
 ]

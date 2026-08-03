@@ -2,9 +2,9 @@
 
 phrasplit provides a command-line interface for processing text files.
 
-By default, the CLI automatically detects if spaCy is installed and uses it for best
-accuracy. You can use the `--simple` flag to force fast regex-based splitting that
-doesn't require spaCy.
+By default, the CLI selects the highest installed and loadable model for `--language`
+(`trf > lg > md > sm`). If no compatible model is available it falls back to regex.
+Automatic selection never downloads models. Use `--simple` to force regex mode.
 
 ## Basic Usage
 
@@ -30,8 +30,11 @@ phrasplit sentences --help
 Split a text file into sentences:
 
 ```bash
-# Auto-detect mode (uses spaCy if available)
+# Automatic best local model for English
 phrasplit sentences input.txt
+
+# Automatic best local model for German
+phrasplit sentences input.txt --language de
 
 # Output to file
 phrasplit sentences input.txt -o output.txt
@@ -39,8 +42,12 @@ phrasplit sentences input.txt -o output.txt
 # Force simple mode (60x faster, no spaCy required)
 phrasplit sentences input.txt --simple
 
-# Use a different spaCy model (only when using spaCy mode)
+# Use an exact package or exact tier
 phrasplit sentences input.txt --model en_core_web_lg
+phrasplit sentences input.txt --language en --model-size lg
+
+# Print the selected concrete package
+phrasplit sentences input.txt --verbose
 ```
 
 ## Splitting Clauses
@@ -109,13 +116,16 @@ Usage: phrasplit sentences [OPTIONS] [INPUT_FILE]
 
 Split text into sentences.
 
-By default, uses spaCy if available for best accuracy. Use --simple for
-faster regex-based splitting that doesn't require spaCy.
+By default, uses the best installed compatible model. Use --simple for regex splitting.
 
 Options:
   -o, --output PATH   Output file (default: stdout)
-  -m, --model TEXT    spaCy language model (default: en_core_web_sm)
+  -m, --model TEXT    Exact spaCy package (default: automatic local selection)
+  --language TEXT     Language hint (default: en)
+  --model-size [sm|md|lg|trf]
+                      Exact automatic model tier
   --simple            Use simple regex-based splitting (faster, no spaCy required)
+  --verbose           Print backend and selected-model diagnostics
   --help              Show this message and exit.
 ```
 
@@ -126,13 +136,16 @@ Usage: phrasplit clauses [OPTIONS] [INPUT_FILE]
 
 Split text into clauses (at commas).
 
-By default, uses spaCy if available for best accuracy. Use --simple for
-faster regex-based splitting that doesn't require spaCy.
+By default, uses the best installed compatible model. Use --simple for regex splitting.
 
 Options:
   -o, --output PATH   Output file (default: stdout)
-  -m, --model TEXT    spaCy language model (default: en_core_web_sm)
+  -m, --model TEXT    Exact spaCy package (default: automatic local selection)
+  --language TEXT     Language hint (default: en)
+  --model-size [sm|md|lg|trf]
+                      Exact automatic model tier
   --simple            Use simple regex-based splitting (faster, no spaCy required)
+  --verbose           Print backend and selected-model diagnostics
   --help              Show this message and exit.
 ```
 
@@ -155,14 +168,17 @@ Usage: phrasplit longlines [OPTIONS] [INPUT_FILE]
 
 Split long lines at sentence/clause boundaries.
 
-By default, uses spaCy if available for best accuracy. Use --simple for
-faster regex-based splitting that doesn't require spaCy.
+By default, uses the best installed compatible model. Use --simple for regex splitting.
 
 Options:
   -o, --output PATH        Output file (default: stdout)
   -l, --max-length INTEGER Maximum line length (default: 80, must be >= 1)
-  -m, --model TEXT         spaCy language model (default: en_core_web_sm)
+  -m, --model TEXT         Exact spaCy package (default: automatic local selection)
+  --language TEXT          Language hint (default: en)
+  --model-size [sm|md|lg|trf]
+                           Exact automatic model tier
   --simple                 Use simple regex-based splitting (faster, no spaCy required)
+  --verbose                Print backend and selected-model diagnostics
   --help                   Show this message and exit.
 ```
 

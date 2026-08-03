@@ -33,6 +33,10 @@ Supported languages (based on spaCy models):
 
 from __future__ import annotations
 
+import re
+
+from phrasplit.spacy_models import normalize_spacy_language
+
 # Single letters used in names (language-independent, Latin alphabet)
 _SINGLE_LETTERS_LATIN: set[str] = {
     "A",
@@ -925,6 +929,32 @@ MODEL_TO_ABBREVIATIONS: dict[str, set[str]] = {
     # The function will return an empty set for these languages.
 }
 
+# Language-level fallback for model families and future package versions.  The
+# exact model map above remains authoritative when a package is known.
+LANGUAGE_TO_ABBREVIATIONS: dict[str, set[str]] = {
+    "ca": CATALAN_ABBREVIATIONS,
+    "da": DANISH_ABBREVIATIONS,
+    "de": GERMAN_ABBREVIATIONS,
+    "el": GREEK_ABBREVIATIONS,
+    "en": ENGLISH_ABBREVIATIONS,
+    "es": SPANISH_ABBREVIATIONS,
+    "fi": FINNISH_ABBREVIATIONS,
+    "fr": FRENCH_ABBREVIATIONS,
+    "hr": CROATIAN_ABBREVIATIONS,
+    "it": ITALIAN_ABBREVIATIONS,
+    "lt": LITHUANIAN_ABBREVIATIONS,
+    "mk": MACEDONIAN_ABBREVIATIONS,
+    "nb": NORWEGIAN_ABBREVIATIONS,
+    "nl": DUTCH_ABBREVIATIONS,
+    "pl": POLISH_ABBREVIATIONS,
+    "pt": PORTUGUESE_ABBREVIATIONS,
+    "ro": ROMANIAN_ABBREVIATIONS,
+    "ru": RUSSIAN_ABBREVIATIONS,
+    "sl": SLOVENIAN_ABBREVIATIONS,
+    "sv": SWEDISH_ABBREVIATIONS,
+    "uk": UKRAINIAN_ABBREVIATIONS,
+}
+
 # =============================================================================
 # Sentence-ending abbreviations
 # =============================================================================
@@ -1195,16 +1225,36 @@ SENTENCE_STARTERS: set[str] = {
 }
 
 
-def get_abbreviations(language_model: str) -> set[str]:
-    """Get abbreviations for a specific spaCy language model.
+def get_abbreviations(
+    language_model: str | None = None,
+    *,
+    language: str | None = None,
+) -> set[str]:
+    """Get abbreviations using exact model, package language, or language.
 
     Args:
-        language_model: Name of the spaCy language model (e.g., "en_core_web_sm")
+        language_model: Optional exact spaCy model name. ``None``, ``""`` and
+            ``"auto"`` use language-based lookup.
+        language: Optional independent language hint, such as ``"de"``.
 
     Returns:
         Set of abbreviations for that language, or empty set if not supported
     """
-    return MODEL_TO_ABBREVIATIONS.get(language_model, set())
+    if language_model:
+        normalized_model = language_model.strip().lower().replace("-", "_")
+        if normalized_model in MODEL_TO_ABBREVIATIONS:
+            return MODEL_TO_ABBREVIATIONS[normalized_model]
+        if normalized_model not in {"auto", "none"}:
+            match = re.match(r"^(?P<language>[a-z]{2,3})_", normalized_model)
+            if match:
+                inferred = normalize_spacy_language(match.group("language"))
+                return LANGUAGE_TO_ABBREVIATIONS.get(inferred, set())
+
+    if language:
+        normalized_language = normalize_spacy_language(language)
+        return LANGUAGE_TO_ABBREVIATIONS.get(normalized_language, set())
+
+    return set()
 
 
 def get_sentence_starters() -> set[str]:

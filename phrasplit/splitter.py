@@ -10,6 +10,7 @@ or can be controlled via the use_spacy parameter.
 
 from __future__ import annotations
 
+import importlib
 import re
 import warnings
 from collections.abc import Iterator
@@ -19,6 +20,13 @@ from phrasplit.abbreviations import (
     get_abbreviations,
     get_sentence_ending_abbreviations,
     get_sentence_starters,
+)
+from phrasplit.spacy_models import (
+    SpacyModelResolution,
+    SpacyModelSize,
+    get_cached_spacy_model,
+    normalize_spacy_language,
+    resolve_spacy_model,
 )
 from phrasplit.types import SplitSegment
 
@@ -41,17 +49,14 @@ class Segment(NamedTuple):
 if TYPE_CHECKING:
     from spacy.language import Language  # type: ignore[import-not-found]
 
-try:
-    import spacy  # type: ignore[import-not-found]
-
-    SPACY_AVAILABLE = True
-except ImportError:
-    SPACY_AVAILABLE = False
-    spacy = None
+# Kept as a compatibility attribute for callers that inspected the old module;
+# spaCy itself is imported lazily only after backend selection requests it.
+SPACY_AVAILABLE: bool | None = None
 
 
 # Cache for loaded spaCy model
 _nlp_cache: dict[str, Language] = {}
+LAST_SPACY_MODEL: str | None = None
 
 # Placeholders for ellipsis during spaCy processing
 # We use Unicode private use area characters to avoid collision with real text
@@ -60,6 +65,7 @@ _ELLIPSIS_4_PLACEHOLDER = "\ue001"  # 4 dots: ....
 _ELLIPSIS_SPACED_PLACEHOLDER = "\ue002"  # Spaced: . . .
 _ELLIPSIS_UNICODE_PLACEHOLDER = "\ue003"  # Unicode ellipsis: …
 _ELLIPSIS_LONG_PREFIX = "\ue004"  # Placeholder for 5+ dots (repeat per dot)
+_ELLIPSIS_SPACED_SPACE_PLACEHOLDER = "\ue005"
 
 # Regex for hyphenated line breaks (e.g., "recom-\nmendation" -> "recommendation")
 _HYPHENATED_LINEBREAK = re.compile(r"(\w+)-\s*\n\s*(\w+)")
@@ -168,8 +174,8 @@ def _protect_ellipsis(text: str) -> str:
 
     # Replace spaced ellipsis first (. . .) - must come before regular dots
     spaced_placeholder = (
-        f"{_ELLIPSIS_SPACED_PLACEHOLDER} "
-        f"{_ELLIPSIS_SPACED_PLACEHOLDER} "
+        f"{_ELLIPSIS_SPACED_PLACEHOLDER}{_ELLIPSIS_SPACED_SPACE_PLACEHOLDER}"
+        f"{_ELLIPSIS_SPACED_PLACEHOLDER}{_ELLIPSIS_SPACED_SPACE_PLACEHOLDER}"
         f"{_ELLIPSIS_SPACED_PLACEHOLDER}"
     )
     text = text.replace(". . .", spaced_placeholder)
@@ -215,6 +221,7 @@ def _restore_ellipsis(text: str) -> str:
 
     # Restore spaced ellipsis
     text = text.replace(_ELLIPSIS_SPACED_PLACEHOLDER, ".")
+    text = text.replace(_ELLIPSIS_SPACED_SPACE_PLACEHOLDER, " ")
 
     return text
 
@@ -394,7 +401,9 @@ def _split_after_url_boundaries(sentences: list[str]) -> list[str]:
 
 def _merge_abbreviation_splits(
     sentences: list[str],
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
+    *,
+    language: str = "en",
 ) -> list[str]:
     """
     Merge sentences that were incorrectly split after abbreviations.
@@ -416,7 +425,7 @@ def _merge_abbreviation_splits(
         List of sentences with abbreviation splits merged
     """
     # Get language-specific abbreviations
-    abbreviations = get_abbreviations(language_model)
+    abbreviations = get_abbreviations(language_model, language=language)
 
     # If no abbreviations for this language, return unchanged
     if not abbreviations:
@@ -515,11 +524,40 @@ def _split_after_ellipsis(sentences: list[str]) -> list[str]:
     return result
 
 
+def _split_after_dotted_abbreviation_boundaries(sentences: list[str]) -> list[str]:
+    """Split acronym or enumeration boundaries before clear sentence starters."""
+
+    result: list[str] = []
+    pattern = re.compile(r"\b(?:[A-Za-z]\.)+\s+")
+    sentence_starters = get_sentence_starters()
+    for sentence in sentences:
+        boundaries = [
+            match.end()
+            for match in pattern.finditer(sentence)
+            if (next_word := _extract_leading_word(sentence[match.end() :]))
+            and next_word in sentence_starters
+        ]
+        if not boundaries:
+            result.append(sentence)
+            continue
+        start = 0
+        for boundary in boundaries:
+            part = sentence[start:boundary].strip()
+            if part:
+                result.append(part)
+            start = boundary
+        remaining = sentence[start:].strip()
+        if remaining:
+            result.append(remaining)
+    return result
+
+
 def _apply_corrections(
     sentences: list[str],
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
     split_on_colon: bool = True,
     nlp: Language | None = None,
+    language: str = "en",
 ) -> list[str]:
     """
     Apply post-processing corrections to fix common spaCy segmentation errors.
@@ -543,8 +581,11 @@ def _apply_corrections(
     Returns:
         Corrected list of sentences
     """
+    # Repair acronym/enumeration boundaries before merging abbreviation splits.
+    sentences = _split_after_dotted_abbreviation_boundaries(sentences)
+
     # First merge abbreviation splits (need to combine before other splits)
-    sentences = _merge_abbreviation_splits(sentences, language_model)
+    sentences = _merge_abbreviation_splits(sentences, language_model, language=language)
 
     # Split after ellipsis followed by new sentence
     sentences = _split_after_ellipsis(sentences)
@@ -558,7 +599,7 @@ def _apply_corrections(
     return sentences
 
 
-def _get_nlp(language_model: str = "en_core_web_sm") -> Language:
+def _get_nlp(language_model: str) -> Language:
     """Get or load a spaCy model (cached).
 
     Args:
@@ -571,25 +612,53 @@ def _get_nlp(language_model: str = "en_core_web_sm") -> Language:
         ImportError: If spaCy is not installed
         OSError: If the specified language model is not found
     """
-    if not SPACY_AVAILABLE:
+    try:
+        spacy = importlib.import_module("spacy")
+    except ImportError as exc:
         raise ImportError(
             "spaCy is required for this feature. "
             "Install with: pip install phrasplit[nlp]\n"
-            "Then download a language model: python -m spacy download en_core_web_sm"
-        )
+            "Then install a compatible local language model."
+        ) from exc
 
     if language_model not in _nlp_cache:
         try:
-            # spacy is guaranteed to be not None here due to SPACY_AVAILABLE check above
-            assert spacy is not None
-            _nlp_cache[language_model] = spacy.load(language_model)
+            cached = get_cached_spacy_model(language_model)
+            _nlp_cache[language_model] = cached or spacy.load(language_model)
         except OSError:
             raise OSError(
                 f"spaCy language model '{language_model}' not found. "
-                f"Download with: python -m spacy download {language_model}"
+                f"Install the model locally before using it."
             ) from None
 
     return _nlp_cache[language_model]
+
+
+def _resolve_backend(
+    *,
+    language: str | None,
+    language_model: str | None,
+    model_size: SpacyModelSize | None,
+    use_spacy: bool | None,
+) -> tuple[bool, str | None, str, SpacyModelResolution | None]:
+    """Resolve one backend/model choice at a public API boundary."""
+
+    global LAST_SPACY_MODEL
+    normalized_language = normalize_spacy_language(language)
+    if use_spacy is False:
+        LAST_SPACY_MODEL = None
+        return False, language_model, normalized_language, None
+
+    resolution = resolve_spacy_model(
+        language=normalized_language,
+        model=language_model,
+        size=model_size,
+        require=use_spacy is True,
+    )
+    LAST_SPACY_MODEL = resolution.model
+    if resolution.model:
+        return True, resolution.model, normalized_language, resolution
+    return False, language_model, normalized_language, resolution
 
 
 def _extract_sentences(doc) -> list[str]:
@@ -744,9 +813,10 @@ def split_paragraphs(text: str) -> list[str]:
 
 def _split_sentences_spacy(
     text: str,
-    language_model: str = "en_core_web_sm",
+    language_model: str,
     apply_corrections: bool = True,
     split_on_colon: bool = True,
+    language: str = "en",
 ) -> list[str]:
     """
     Split text into sentences using spaCy (internal implementation).
@@ -784,17 +854,26 @@ def _split_sentences_spacy(
 
     # Apply post-processing corrections if enabled
     if apply_corrections:
-        result = _apply_corrections(result, language_model, split_on_colon, nlp)
+        result = _apply_corrections(
+            result,
+            language_model,
+            split_on_colon,
+            nlp,
+            language=language,
+        )
 
     return result
 
 
 def split_sentences(
     text: str,
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
     apply_corrections: bool = True,
     split_on_colon: bool = True,
     use_spacy: bool | None = None,
+    *,
+    language: str = "en",
+    model_size: SpacyModelSize | None = None,
 ) -> list[str]:
     """
     Split text into sentences.
@@ -850,29 +929,32 @@ def split_sentences(
             stacklevel=2,
         )
 
-    # Determine which implementation to use
-    if use_spacy is None:
-        # Auto-detect: use spaCy if available
-        use_spacy = SPACY_AVAILABLE
-    elif use_spacy and not SPACY_AVAILABLE:
-        # User explicitly requested spaCy but it's not available
-        raise ImportError(
-            "spaCy is not installed. Install with: pip install phrasplit[nlp]\n"
-            "Then download a language model: python -m spacy download en_core_web_sm\n"
-            "Or use use_spacy=False to use the simple regex-based splitter."
-        )
+    use_spacy, resolved_model, normalized_language, _ = _resolve_backend(
+        language=language,
+        language_model=language_model,
+        model_size=model_size,
+        use_spacy=use_spacy,
+    )
 
     if use_spacy:
         # Use spaCy-based implementation
         return _split_sentences_spacy(
-            text, language_model, apply_corrections, split_on_colon
+            text,
+            resolved_model or "",
+            apply_corrections,
+            split_on_colon,
+            language=normalized_language,
         )
     else:
         # Use simple regex-based implementation
         # Import here to avoid circular dependency issues
         from phrasplit.splitter_without_spacy import split_sentences_simple
 
-        return split_sentences_simple(text, language_model)
+        return split_sentences_simple(
+            text,
+            language_model,
+            language=normalized_language,
+        )
 
 
 def _split_sentence_into_clauses(sentence: str) -> list[str]:
@@ -900,7 +982,7 @@ def _split_sentence_into_clauses(sentence: str) -> list[str]:
 
 def _split_clauses_spacy(
     text: str,
-    language_model: str = "en_core_web_sm",
+    language_model: str,
 ) -> list[str]:
     """
     Split text into comma-separated parts using spaCy (internal implementation).
@@ -940,8 +1022,11 @@ def _split_clauses_spacy(
 
 def split_clauses(
     text: str,
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
     use_spacy: bool | None = None,
+    *,
+    language: str = "en",
+    model_size: SpacyModelSize | None = None,
 ) -> list[str]:
     """
     Split text into comma-separated parts for audiobook creation.
@@ -970,20 +1055,23 @@ def split_clauses(
         Output: ["I do like coffee,", "and I like wine."]
     """
     # Determine which implementation to use
-    if use_spacy is None:
-        use_spacy = SPACY_AVAILABLE
-    elif use_spacy and not SPACY_AVAILABLE:
-        raise ImportError(
-            "spaCy is not installed. Install with: pip install phrasplit[nlp]\n"
-            "Or use use_spacy=False to use the simple regex-based splitter."
-        )
+    use_spacy, resolved_model, normalized_language, _ = _resolve_backend(
+        language=language,
+        language_model=language_model,
+        model_size=model_size,
+        use_spacy=use_spacy,
+    )
 
     if use_spacy:
-        return _split_clauses_spacy(text, language_model)
+        return _split_clauses_spacy(text, resolved_model or "")
     else:
         from phrasplit.splitter_without_spacy import split_clauses_simple
 
-        return split_clauses_simple(text, language_model)
+        return split_clauses_simple(
+            text,
+            language_model,
+            language=normalized_language,
+        )
 
 
 def _split_at_clauses(text: str, max_length: int) -> list[str]:
@@ -1111,7 +1199,7 @@ def _split_at_boundaries(text: str, max_length: int, nlp: Language) -> list[str]
 def _split_long_lines_spacy(
     text: str,
     max_length: int,
-    language_model: str = "en_core_web_sm",
+    language_model: str,
 ) -> list[str]:
     """
     Split lines exceeding max_length at clause/sentence boundaries using spaCy.
@@ -1151,8 +1239,11 @@ def _split_long_lines_spacy(
 def split_long_lines(
     text: str,
     max_length: int,
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
     use_spacy: bool | None = None,
+    *,
+    language: str = "en",
+    model_size: SpacyModelSize | None = None,
 ) -> list[str]:
     """
     Split lines exceeding max_length at clause/sentence boundaries.
@@ -1179,29 +1270,36 @@ def split_long_lines(
         ImportError: If use_spacy=True but spaCy is not installed
     """
     # Determine which implementation to use
-    if use_spacy is None:
-        use_spacy = SPACY_AVAILABLE
-    elif use_spacy and not SPACY_AVAILABLE:
-        raise ImportError(
-            "spaCy is not installed. Install with: pip install phrasplit[nlp]\n"
-            "Or use use_spacy=False to use the simple regex-based splitter."
-        )
+    use_spacy, resolved_model, normalized_language, _ = _resolve_backend(
+        language=language,
+        language_model=language_model,
+        model_size=model_size,
+        use_spacy=use_spacy,
+    )
 
     if use_spacy:
-        return _split_long_lines_spacy(text, max_length, language_model)
+        return _split_long_lines_spacy(text, max_length, resolved_model or "")
     else:
         from phrasplit.splitter_without_spacy import split_long_lines_simple
 
-        return split_long_lines_simple(text, max_length, language_model)
+        return split_long_lines_simple(
+            text,
+            max_length,
+            language_model,
+            language=normalized_language,
+        )
 
 
 def split_text(
     text: str,
     mode: str = "sentence",
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
     apply_corrections: bool = True,
     split_on_colon: bool = True,
     use_spacy: bool | None = None,
+    *,
+    language: str = "en",
+    model_size: SpacyModelSize | None = None,
 ) -> list[Segment]:
     """
     Split text into segments with hierarchical position information.
@@ -1278,17 +1376,16 @@ def split_text(
         return result
 
     # Determine which implementation to use for sentence/clause modes
-    if use_spacy is None:
-        use_spacy = SPACY_AVAILABLE
-    elif use_spacy and not SPACY_AVAILABLE:
-        raise ImportError(
-            "spaCy is not installed. Install with: pip install phrasplit[nlp]\n"
-            "Or use use_spacy=False to use the simple regex-based splitter."
-        )
+    use_spacy, resolved_model, normalized_language, _ = _resolve_backend(
+        language=language,
+        language_model=language_model,
+        model_size=model_size,
+        use_spacy=use_spacy,
+    )
 
     if use_spacy:
         # Use spaCy implementation
-        nlp = _get_nlp(language_model)
+        nlp = _get_nlp(resolved_model or "")
 
         for para_idx, para in enumerate(paragraphs):
             # Protect ellipsis from being treated as sentence boundaries
@@ -1303,7 +1400,11 @@ def split_text(
             # Apply post-processing corrections if enabled
             if apply_corrections:
                 sentences = _apply_corrections(
-                    sentences, language_model, split_on_colon, nlp
+                    sentences,
+                    resolved_model,
+                    split_on_colon,
+                    nlp,
+                    language=normalized_language,
                 )
 
             if mode == "sentence":
@@ -1325,7 +1426,11 @@ def split_text(
 
         for para_idx, para in enumerate(paragraphs):
             # Get sentences for this paragraph
-            sentences = split_sentences_simple(para, language_model)
+            sentences = split_sentences_simple(
+                para,
+                language_model,
+                language=normalized_language,
+            )
 
             if mode == "sentence":
                 for sent_idx, sent in enumerate(sentences):
@@ -1405,13 +1510,15 @@ def _trim_segment_bounds(text: str, start: int, end: int) -> tuple[int, int] | N
 def _merge_abbreviation_splits_with_offsets(
     text: str,
     segments: list[tuple[str, int, int]],
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
+    *,
+    language: str = "en",
 ) -> list[tuple[str, int, int]]:
     """Merge abbreviation splits while preserving exact offsets."""
     if len(segments) <= 1:
         return segments
 
-    abbreviations = get_abbreviations(language_model)
+    abbreviations = get_abbreviations(language_model, language=language)
     if not abbreviations:
         return segments
 
@@ -1563,13 +1670,53 @@ def _split_after_url_boundaries_with_offsets(
     return result
 
 
+def _split_after_dotted_abbreviation_boundaries_with_offsets(
+    text: str, segments: list[tuple[str, int, int]]
+) -> list[tuple[str, int, int]]:
+    """Split after dotted acronyms before an unambiguous sentence starter."""
+
+    result: list[tuple[str, int, int]] = []
+    acronym_pattern = re.compile(r"\b(?:[A-Za-z]\.)+\s+")
+    sentence_starters = get_sentence_starters()
+    for seg_text, seg_start, seg_end in segments:
+        boundaries: list[int] = []
+        for match in acronym_pattern.finditer(seg_text):
+            next_word = _extract_leading_word(seg_text[match.end() :])
+            if next_word and next_word in sentence_starters:
+                boundaries.append(match.end())
+        if not boundaries:
+            result.append((seg_text, seg_start, seg_end))
+            continue
+        current_start = seg_start
+        for boundary in boundaries:
+            absolute_boundary = seg_start + boundary
+            trimmed = _trim_segment_bounds(text, current_start, absolute_boundary)
+            if trimmed:
+                start, end = trimmed
+                result.append((text[start:end], start, end))
+            current_start = absolute_boundary
+        trimmed = _trim_segment_bounds(text, current_start, seg_end)
+        if trimmed:
+            start, end = trimmed
+            result.append((text[start:end], start, end))
+    return result
+
+
 def _apply_corrections_with_offsets(
     text: str,
     segments: list[tuple[str, int, int]],
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
+    *,
+    language: str = "en",
 ) -> list[tuple[str, int, int]]:
     """Apply sentence corrections while preserving exact offsets."""
-    segments = _merge_abbreviation_splits_with_offsets(text, segments, language_model)
+    segments = _merge_abbreviation_splits_with_offsets(
+        text,
+        segments,
+        language_model,
+        language=language,
+    )
+    segments = _split_after_dotted_abbreviation_boundaries_with_offsets(text, segments)
     segments = _split_after_ellipsis_with_offsets(text, segments)
     segments = _split_after_url_boundaries_with_offsets(text, segments)
     segments = _split_urls_with_offsets(text, segments)
@@ -1577,7 +1724,10 @@ def _apply_corrections_with_offsets(
 
 
 def _simple_sentence_split_preserving_offsets(  # noqa: C901
-    text: str, language_model: str = "en"
+    text: str,
+    language_model: str | None = None,
+    *,
+    language: str = "en",
 ) -> list[tuple[str, int, int]]:
     """Split text into sentences using simple regex, preserving exact character offsets.
 
@@ -1597,7 +1747,7 @@ def _simple_sentence_split_preserving_offsets(  # noqa: C901
 
     # Get abbreviations for this language to avoid splitting on "Dr.", etc.
     # But DO split on sentence-ending abbreviations like "Inc.", "Ltd."
-    abbreviations = get_abbreviations(language_model)
+    abbreviations = get_abbreviations(language_model, language=language)
     sentence_ending_abbrevs = get_sentence_ending_abbreviations()
     sentence_starters = get_sentence_starters()
 
@@ -1696,7 +1846,10 @@ def _simple_sentence_split_preserving_offsets(  # noqa: C901
 
 
 def _simple_sentence_split_with_markup_offsets(  # noqa: C901
-    text: str, language_model: str = "en"
+    text: str,
+    language_model: str | None = None,
+    *,
+    language: str = "en",
 ) -> list[tuple[str, int, int]]:
     """Markup-aware sentence split preserving exact character offsets.
 
@@ -1715,7 +1868,7 @@ def _simple_sentence_split_with_markup_offsets(  # noqa: C901
     if not text:
         return []
 
-    abbreviations = get_abbreviations(language_model)
+    abbreviations = get_abbreviations(language_model, language=language)
     sentence_ending_abbrevs = get_sentence_ending_abbreviations()
     sentence_starters = get_sentence_starters()
 
@@ -1816,10 +1969,12 @@ def _simple_sentence_split_with_markup_offsets(  # noqa: C901
 
 def _split_with_offsets_regex(
     text: str,
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
     mode: str = "sentence",
     max_chars: int | None = None,
     inline_markup: bool = False,
+    *,
+    language: str = "en",
 ) -> list[SplitSegment]:
     """Split text using regex-based approach with character offsets.
 
@@ -1886,11 +2041,15 @@ def _split_with_offsets_regex(
         # This avoids preprocessing that would break the exact-slice invariant
         if inline_markup:
             sentences_with_offsets = _simple_sentence_split_with_markup_offsets(
-                para_text, language_model
+                para_text,
+                language_model,
+                language=language,
             )
         else:
             sentences_with_offsets = _simple_sentence_split_preserving_offsets(
-                para_text, language_model
+                para_text,
+                language_model,
+                language=language,
             )
 
         sent_idx = 0
@@ -1952,10 +2111,12 @@ def _split_with_offsets_regex(
 
 def _split_with_offsets_spacy(
     text: str,
-    language_model: str = "en_core_web_sm",
+    language_model: str,
     mode: str = "sentence",
     max_chars: int | None = None,
     apply_corrections: bool = True,
+    *,
+    language: str = "en",
 ) -> list[SplitSegment]:
     """Split text using spaCy-based approach with character offsets.
 
@@ -2032,7 +2193,12 @@ def _split_with_offsets_spacy(
             sentences.append((sent_text, sent_start, sent_end))
 
         if apply_corrections:
-            sentences = _apply_corrections_with_offsets(text, sentences, language_model)
+            sentences = _apply_corrections_with_offsets(
+                text,
+                sentences,
+                language_model,
+                language=language,
+            )
 
         for sent_idx, (sent_text, sent_start, sent_end) in enumerate(sentences):
             if mode == "sentence":
@@ -2181,7 +2347,9 @@ def split_with_offsets(
     *,
     mode: str = "sentence",
     use_spacy: bool | None = None,
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
+    language: str = "en",
+    model_size: SpacyModelSize | None = None,
     apply_corrections: bool = True,
     max_chars: int | None = None,
     inline_markup: bool = False,
@@ -2288,27 +2456,35 @@ def split_with_offsets(
             )
         use_spacy = False
 
-    # Determine which implementation to use
-    if use_spacy is None:
-        use_spacy = SPACY_AVAILABLE
-    elif use_spacy and not SPACY_AVAILABLE:
-        raise ImportError(
-            "spaCy is not installed. Install with: pip install phrasplit[nlp]\n"
-            "Then download a language model: python -m spacy download en_core_web_sm\n"
-            "Or use use_spacy=False to use the simple regex-based splitter."
+    if mode == "paragraph":
+        resolved_model = language_model
+        normalized_language = normalize_spacy_language(language)
+        use_spacy = False
+    else:
+        use_spacy, resolved_model, normalized_language, _ = _resolve_backend(
+            language=language,
+            language_model=language_model,
+            model_size=model_size,
+            use_spacy=use_spacy,
         )
 
     if use_spacy:
         segments = _split_with_offsets_spacy(
             text,
-            language_model,
+            resolved_model or "",
             mode,
             max_chars,
             apply_corrections,
+            language=normalized_language,
         )
     else:
         segments = _split_with_offsets_regex(
-            text, language_model, mode, max_chars, inline_markup=inline_markup
+            text,
+            resolved_model,
+            mode,
+            max_chars,
+            inline_markup=inline_markup,
+            language=normalized_language,
         )
 
     _validate_offset_segments(text, segments)
@@ -2320,7 +2496,9 @@ def iter_split_with_offsets(
     *,
     mode: str = "sentence",
     use_spacy: bool | None = None,
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
+    language: str = "en",
+    model_size: SpacyModelSize | None = None,
     apply_corrections: bool = True,
     max_chars: int | None = None,
     inline_markup: bool = False,
@@ -2364,6 +2542,8 @@ def iter_split_with_offsets(
         mode=mode,
         use_spacy=use_spacy,
         language_model=language_model,
+        language=language,
+        model_size=model_size,
         apply_corrections=apply_corrections,
         max_chars=max_chars,
         inline_markup=inline_markup,

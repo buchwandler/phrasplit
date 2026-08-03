@@ -71,17 +71,22 @@ def _insert_ellipsis_boundaries(text: str) -> str:
     return "".join(parts)
 
 
-def _build_language_patterns(language_model: str) -> dict[str, re.Pattern[str]]:
+def _build_language_patterns(
+    language_model: str | None = None,
+    *,
+    language: str = "en",
+) -> dict[str, re.Pattern[str]]:
     """
     Build language-specific regex patterns from abbreviations.
 
     Args:
-        language_model: spaCy language model name (e.g., "en_core_web_sm")
+        language_model: Optional spaCy model name for compatibility.
+        language: Independent normalized language hint.
 
     Returns:
         Dictionary of compiled regex patterns for the language
     """
-    abbrevs = get_abbreviations(language_model)
+    abbrevs = get_abbreviations(language_model, language=language)
 
     if not abbrevs:
         # No abbreviations for this language, return empty patterns
@@ -146,7 +151,9 @@ def _build_language_patterns(language_model: str) -> dict[str, re.Pattern[str]]:
 
 def split_sentences_simple(
     text: str,
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
+    *,
+    language: str = "en",
 ) -> list[str]:
     """
     Split text into sentences using regex-based rules (no spaCy required).
@@ -162,8 +169,8 @@ def split_sentences_simple(
 
     Args:
         text: Input text to split
-        language_model: spaCy language model name (used only to determine language
-            for abbreviation handling, e.g., "en_core_web_sm", "de_core_news_sm")
+        language_model: Optional spaCy model name retained for compatibility.
+        language: Independent language hint for abbreviation handling.
 
     Returns:
         List of sentences (non-empty, stripped)
@@ -199,7 +206,7 @@ def split_sentences_simple(
         text = _protect_ellipsis(text)
 
         # Build language-specific patterns
-        patterns = _build_language_patterns(language_model)
+        patterns = _build_language_patterns(language_model, language=language)
 
         # Protect periods in various contexts (replace with placeholder)
 
@@ -341,7 +348,9 @@ def split_sentences_simple(
 
 def split_clauses_simple(
     text: str,
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
+    *,
+    language: str = "en",
 ) -> list[str]:
     """
     Split text into clauses using regex-based sentence detection (no spaCy required).
@@ -351,7 +360,8 @@ def split_clauses_simple(
 
     Args:
         text: Input text
-        language_model: spaCy language model name (for language detection)
+        language_model: Optional spaCy model name retained for compatibility.
+        language: Independent language hint for abbreviation handling.
 
     Returns:
         List of comma-separated clauses
@@ -372,7 +382,7 @@ def split_clauses_simple(
 
     for para in paragraphs:
         # Get sentences for this paragraph
-        sentences = split_sentences_simple(para, language_model)
+        sentences = split_sentences_simple(para, language_model, language=language)
 
         # Split each sentence into clauses
         for sent in sentences:
@@ -385,7 +395,9 @@ def split_clauses_simple(
 def split_long_lines_simple(
     text: str,
     max_length: int,
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
+    *,
+    language: str = "en",
 ) -> list[str]:
     """
     Split long lines at sentence/clause boundaries (no spaCy required).
@@ -400,7 +412,8 @@ def split_long_lines_simple(
     Args:
         text: Input text
         max_length: Maximum line length in characters (must be positive)
-        language_model: spaCy language model name (for language detection)
+        language_model: Optional spaCy model name retained for compatibility.
+        language: Independent language hint for abbreviation handling.
 
     Returns:
         List of lines, each within max_length (except single words exceeding limit)
@@ -424,7 +437,7 @@ def split_long_lines_simple(
             continue
 
         # Split the long line using simple sentence splitting
-        sentences = split_sentences_simple(line, language_model)
+        sentences = split_sentences_simple(line, language_model, language=language)
 
         # Try to combine sentences up to max_length
         current_line = ""

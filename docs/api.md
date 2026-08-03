@@ -2,6 +2,30 @@
 
 This page contains the complete API reference for phrasplit.
 
+## spaCy Model Resolver
+
+The stable resolver API is available directly from `phrasplit`:
+
+```python
+from phrasplit import (
+    SpacyModelResolution,
+    SpacyModelSize,
+    normalize_spacy_language,
+    resolve_spacy_model,
+)
+
+resolution = resolve_spacy_model(language="en", require=False)
+print(resolution.model)       # concrete selected package or None
+print(resolution.model_size)  # sm, md, lg, or trf
+print(resolution.attempts)    # local loadability diagnostics
+```
+
+Resolution is local-only and never downloads a model. `use_spacy=False` skips resolution
+entirely; `use_spacy=True` requires a loadable result; `use_spacy=None` uses spaCy only
+when a compatible result exists and otherwise uses regex splitting. Downstream consumers
+can use `language`, `language_model`, and `model_size` with the same semantics as the
+splitting APIs.
+
 ## Main Functions
 
 ```{eval-rst}
@@ -25,6 +49,12 @@ sentences = split_sentences(text)
 
 # Use simple mode (no spaCy required)
 sentences = split_sentences(text, use_spacy=False)
+
+# Automatic highest-available selection, exact overrides, and regex forcing
+sentences = split_sentences(text, language="en")
+sentences = split_sentences(text, language="de")
+sentences = split_sentences(text, language_model="en_core_web_sm")
+sentences = split_sentences(text, language="en", model_size="lg")
 
 # split_on_colon is deprecated (kept for compatibility only)
 text = "Note: This is important."
@@ -183,16 +213,22 @@ class Segment(NamedTuple):
 
 def split_sentences(
     text: str,
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
     apply_corrections: bool = True,
     split_on_colon: bool = True,
     use_spacy: bool | None = None,
+    *,
+    language: str = "en",
+    model_size: str | None = None,
 ) -> list[str]: ...
 
 def split_clauses(
     text: str,
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
     use_spacy: bool | None = None,
+    *,
+    language: str = "en",
+    model_size: str | None = None,
 ) -> list[str]: ...
 
 def split_paragraphs(text: str) -> list[str]: ...
@@ -200,16 +236,22 @@ def split_paragraphs(text: str) -> list[str]: ...
 def split_text(
     text: str,
     mode: str = "sentence",
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
     apply_corrections: bool = True,
     split_on_colon: bool = True,
     use_spacy: bool | None = None,
+    *,
+    language: str = "en",
+    model_size: str | None = None,
 ) -> list[Segment]: ...
 
 def split_long_lines(
     text: str,
     max_length: int,
-    language_model: str = "en_core_web_sm",
+    language_model: str | None = None,
     use_spacy: bool | None = None,
+    *,
+    language: str = "en",
+    model_size: str | None = None,
 ) -> list[str]: ...
 ```
