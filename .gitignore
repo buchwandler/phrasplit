@@ -208,3 +208,12 @@ __marimo__/
 phrasplit/_version.py
 TASKS.md
 context_phrasplit.*
+
+# Taskledger local state (canonical .ledger layout)
+# Commit: .ledger/ledger.toml, .ledger/taskledger/config.toml, .ledger/taskledger/.ledger-project.toml
+.ledger/backups/
+.ledger/migrations/
+
+# Legacy taskledger state (superseded by .ledger/)
+.taskledger/
+.taskledger.toml

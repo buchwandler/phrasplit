@@ -1,0 +1,12 @@
+schema_version = 3
+
+[project]
+uuid = "2e737fe2-71f6-11f1-aeb9-bbffefc1e809"
+name = "phrasplit"
+
+[ledgers.taskledger.mounts.data]
+storage = "external"
+root = "../ledger"
+
+[ledgers.taskledger.mounts.indexes]
+storage = "cache"
