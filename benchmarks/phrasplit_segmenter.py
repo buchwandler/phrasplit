@@ -158,26 +158,28 @@ def main() -> None:
     else:
         model_name = get_spacy_model(args.lang)
 
-    with open(args.inputfile, encoding="utf-8") as input_f:
-        with open(args.outputfile, "w", encoding="utf-8") as output_f:
-            for line in input_f:
-                line = line.strip()
-                if not line:
-                    continue
+    with (
+        open(args.inputfile, encoding="utf-8") as input_f,
+        open(args.outputfile, "w", encoding="utf-8") as output_f,
+    ):
+        for line in input_f:
+            line = line.strip()
+            if not line:
+                continue
 
-                # Use the actual phrasplit.split_sentences() function
-                # Long text handling is built-in (automatic chunking)
-                split_on_colon = not args.no_split_on_colon
-                use_spacy = None if not args.simple else False
-                sentences = split_sentences(
-                    line,
-                    language_model=model_name,
-                    split_on_colon=split_on_colon,
-                    use_spacy=use_spacy,
-                )
+            # Use the actual phrasplit.split_sentences() function
+            # Long text handling is built-in (automatic chunking)
+            split_on_colon = not args.no_split_on_colon
+            use_spacy = None if not args.simple else False
+            sentences = split_sentences(
+                line,
+                language_model=model_name,
+                split_on_colon=split_on_colon,
+                use_spacy=use_spacy,
+            )
 
-                # Write each sentence on its own line
-                output_f.writelines(sentence + "\n" for sentence in sentences)
+            # Write each sentence on its own line
+            output_f.writelines(sentence + "\n" for sentence in sentences)
 
 
 if __name__ == "__main__":

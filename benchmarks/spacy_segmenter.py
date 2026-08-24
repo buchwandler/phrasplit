@@ -227,23 +227,25 @@ def main() -> None:
         )
         nlp = spacy.load("en_core_web_sm")
 
-    with open(args.inputfile, encoding="utf-8") as input_f:
-        with open(args.outputfile, "w", encoding="utf-8") as output_f:
-            for line in input_f:
-                # Only strip regular whitespace, preserve nbsp
-                line = line.strip(" \t\n\r")
-                if not line:
-                    continue
+    with (
+        open(args.inputfile, encoding="utf-8") as input_f,
+        open(args.outputfile, "w", encoding="utf-8") as output_f,
+    ):
+        for line in input_f:
+            # Only strip regular whitespace, preserve nbsp
+            line = line.strip(" \t\n\r")
+            if not line:
+                continue
 
-                # Chunk the line if it's too long for spaCy
-                chunks = chunk_text(line)
+            # Chunk the line if it's too long for spaCy
+            chunks = chunk_text(line)
 
-                for chunk in chunks:
-                    # Split the chunk into sentences (raw spaCy, no corrections)
-                    sentences = split_sentences_raw(chunk, nlp)
+            for chunk in chunks:
+                # Split the chunk into sentences (raw spaCy, no corrections)
+                sentences = split_sentences_raw(chunk, nlp)
 
-                    # Write each sentence on its own line
-                    output_f.writelines(sentence + "\n" for sentence in sentences)
+                # Write each sentence on its own line
+                output_f.writelines(sentence + "\n" for sentence in sentences)
 
 
 if __name__ == "__main__":

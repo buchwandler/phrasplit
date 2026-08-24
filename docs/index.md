@@ -85,6 +85,7 @@ examples
 integration
 offsets
 streaming
+changelog
 ```
 
 # Indices and tables

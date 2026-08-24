@@ -70,7 +70,7 @@ def process_file(
             output_count=0,
             error_message=f"Encoding error: {e}",
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return ProcessingResult(
             filepath=str(filepath),
             success=False,
@@ -214,7 +214,7 @@ def batch_split_to_files(
                     output_count=len(split_result),
                 )
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             results.append(
                 ProcessingResult(
                     filepath=str(input_path),

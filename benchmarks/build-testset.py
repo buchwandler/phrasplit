@@ -247,7 +247,7 @@ def download_dataset(lang_code: str, config: DatasetConfig) -> list[str] | None:
     try:
         with urllib.request.urlopen(url, timeout=30) as response:
             content = response.read().decode("utf-8")
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
         print(f"  Error downloading {lang_code}: {e}")
         return None
 

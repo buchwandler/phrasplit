@@ -11,7 +11,7 @@ Usage:
 
 import argparse
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from runbatcheval import LANGUAGES, evaluate_language, print_summary
@@ -42,7 +42,8 @@ def main():
     all_results = {}
     failed_languages = []
 
-    print(f"Phrasplit Benchmark - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    print(f"Phrasplit Benchmark - {timestamp}")
     print(f"Evaluating {len(LANGUAGES)} languages...")
     print()
 
@@ -59,7 +60,7 @@ def main():
             else:
                 print("SKIPPED (no test files)")
                 failed_languages.append(lang_code)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"FAILED ({e})")
             failed_languages.append(lang_code)
 
@@ -75,7 +76,7 @@ def main():
         output_path = Path(args.output)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write("Phrasplit Benchmark Results\n")
-            f.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Date: {timestamp}\n")
             f.write(f"Languages evaluated: {len(all_results)}\n")
             f.write("\n")
             header = (

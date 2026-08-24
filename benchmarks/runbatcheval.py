@@ -297,7 +297,7 @@ def run_segmenter(
             cmd.append("--simple")
 
     start_time = time.time()
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     elapsed = time.time() - start_time
 
     if result.returncode != 0:
@@ -338,7 +338,7 @@ def run_segmenteval(
     else:
         cmd.append("--no-errors")
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
 
     if result.returncode != 0:
         print(f"  Evaluation failed: {result.stderr}", file=sys.stderr)
@@ -732,7 +732,7 @@ def main():
 
     # Initialize output handler with optional file
     global output
-    output_file = open(args.output, "w", encoding="utf-8") if args.output else None
+    output_file = open(args.output, "w", encoding="utf-8") if args.output else None  # noqa: SIM115
     output = Output(output_file)
 
     try:

@@ -207,7 +207,7 @@ def create_sentencizer_nlp(lang_code: str):
     """
     try:
         nlp = spacy.blank(lang_code)
-    except Exception:
+    except (ImportError, ValueError):
         # Fall back to English if language not supported
         print(
             f"Warning: Language '{lang_code}' not supported, falling back to English",
@@ -247,23 +247,25 @@ def main() -> None:
     # Create blank model with sentencizer
     nlp = create_sentencizer_nlp(spacy_lang)
 
-    with open(args.inputfile, encoding="utf-8") as input_f:
-        with open(args.outputfile, "w", encoding="utf-8") as output_f:
-            for line in input_f:
-                # Only strip regular whitespace, preserve nbsp
-                line = line.strip(" \t\n\r")
-                if not line:
-                    continue
+    with (
+        open(args.inputfile, encoding="utf-8") as input_f,
+        open(args.outputfile, "w", encoding="utf-8") as output_f,
+    ):
+        for line in input_f:
+            # Only strip regular whitespace, preserve nbsp
+            line = line.strip(" \t\n\r")
+            if not line:
+                continue
 
-                # Chunk the line if it's too long for spaCy
-                chunks = chunk_text(line)
+            # Chunk the line if it's too long for spaCy
+            chunks = chunk_text(line)
 
-                for chunk in chunks:
-                    # Split the chunk into sentences using sentencizer
-                    sentences = split_sentences_sentencizer(chunk, nlp)
+            for chunk in chunks:
+                # Split the chunk into sentences using sentencizer
+                sentences = split_sentences_sentencizer(chunk, nlp)
 
-                    # Write each sentence on its own line
-                    output_f.writelines(sentence + "\n" for sentence in sentences)
+                # Write each sentence on its own line
+                output_f.writelines(sentence + "\n" for sentence in sentences)
 
 
 if __name__ == "__main__":
