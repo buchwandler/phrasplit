@@ -265,8 +265,7 @@ def save_gold_file(sentences: list[str], output_path: Path) -> None:
         output_path: Output file path
     """
     with open(output_path, "w", encoding="utf-8") as f:
-        for sentence in sentences:
-            f.write(sentence + "\n")
+        f.writelines(sentence + "\n" for sentence in sentences)
 
 
 def build_test_variants(gold_path: Path) -> None:
@@ -293,8 +292,7 @@ def build_test_variants(gold_path: Path) -> None:
     # All: Same as gold
     all_path = Path(base_name + ".all")
     with open(all_path, "w", encoding="utf-8") as f:
-        for sent in sentences:
-            f.write(sent + "\n")
+        f.writelines(sent + "\n" for sent in sentences)
 
     # None: All on one line
     none_path = Path(base_name + ".none")

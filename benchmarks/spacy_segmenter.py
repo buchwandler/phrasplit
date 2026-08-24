@@ -243,8 +243,7 @@ def main() -> None:
                     sentences = split_sentences_raw(chunk, nlp)
 
                     # Write each sentence on its own line
-                    for sentence in sentences:
-                        output_f.write(sentence + "\n")
+                    output_f.writelines(sentence + "\n" for sentence in sentences)
 
 
 if __name__ == "__main__":

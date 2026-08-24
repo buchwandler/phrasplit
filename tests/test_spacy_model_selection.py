@@ -427,9 +427,7 @@ def test_detailed_split_resolves_backend_once(
 
 
 def test_split_text_compatibility_wrapper_returns_segments() -> None:
-    detailed = phrasplit.split_text_with_diagnostics(
-        "Hello world.", use_spacy=False
-    )
+    detailed = phrasplit.split_text_with_diagnostics("Hello world.", use_spacy=False)
     legacy = phrasplit.split_text("Hello world.", use_spacy=False)
 
     assert isinstance(legacy, list)

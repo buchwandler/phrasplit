@@ -63,7 +63,6 @@ def write_output(text: str, output: Path | None, use_rich: bool = True) -> None:
 @click.version_option()
 def main() -> None:
     """Phrasplit - Split text into sentences, clauses, or paragraphs."""
-    pass
 
 
 @main.command()

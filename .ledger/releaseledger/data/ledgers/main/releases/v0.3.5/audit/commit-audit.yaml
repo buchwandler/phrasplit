@@ -1,0 +1,50 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 3
+release_version: v0.3.5
+git_base_ref: v0.3.4
+git_base_sha: 2eac8fe1fb31319bb660ce603569706b3e48069b
+git_head_ref: HEAD
+git_head_sha: 6399249fa1d30b9d78ab027459e3b0381af8a249
+git_range: 2eac8fe1fb31319bb660ce603569706b3e48069b..6399249fa1d30b9d78ab027459e3b0381af8a249
+commit_count: 1
+rows:
+- sha: 6399249fa1d30b9d78ab027459e3b0381af8a249
+  source_ref: git:6399249fa1d30b9d78ab027459e3b0381af8a249
+  short_sha: '6399249'
+  changed_paths:
+  - README.md
+  - benchmarks/benchmark_model_resolution.py
+  - docs/api.md
+  - docs/integration.md
+  - phrasplit/__init__.py
+  - phrasplit/spacy_models.py
+  - phrasplit/splitter.py
+  - phrasplit/splitter_without_spacy.py
+  - tests/test_spacy_model_selection.py
+  stats:
+    files_changed: 0
+    insertions: 506
+    deletions: 91
+  inspected: true
+  inspected_paths:
+  - README.md
+  - benchmarks/benchmark_model_resolution.py
+  - docs/api.md
+  - docs/integration.md
+  - phrasplit/__init__.py
+  - phrasplit/spacy_models.py
+  - phrasplit/splitter.py
+  - phrasplit/splitter_without_spacy.py
+  - tests/test_spacy_model_selection.py
+  observed_behavior: Added split_text_with_diagnostics with backend/model diagnostics
+    while preserving split_text list compatibility; cached installed-model discovery
+    and expanded coverage/docs/benchmark support.
+  public_impact: public
+  decision: accepted
+  evidence_subject: 'feat: new text split with diagnostics and better caching'
+  target_entry_id: entry-0001
+  notes: Reviewed the implementation, public docs, benchmark, and tests in the commit
+    diff.

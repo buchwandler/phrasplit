@@ -86,12 +86,12 @@ def main():
             f.write("-" * 50 + "\n")
 
             for lang_code in sorted(all_results.keys()):
-                for result in all_results[lang_code]:
-                    f.write(
-                        f"{lang_code:<6} {result.flavour:<8} "
-                        f"{result.precision:>10.3f} {result.recall:>10.3f} "
-                        f"{result.f_measure:>10.3f}\n"
-                    )
+                f.writelines(
+                    f"{lang_code:<6} {result.flavour:<8} "
+                    f"{result.precision:>10.3f} {result.recall:>10.3f} "
+                    f"{result.f_measure:>10.3f}\n"
+                    for result in all_results[lang_code]
+                )
 
         print(f"\nResults saved to: {output_path}")
 

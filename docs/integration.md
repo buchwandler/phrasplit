@@ -47,7 +47,9 @@ for seg in segments:
 
 ## Backend and Model Diagnostics
 
-Use `split_text_with_diagnostics()` when an integration needs to report the backend and model selected during the same operation that produced the segments. This avoids a diagnostics-only resolver call before splitting:
+Use `split_text_with_diagnostics()` when an integration needs to report the backend and
+model selected during the same operation that produced the segments. This avoids a
+diagnostics-only resolver call before splitting:
 
 ```python
 from phrasplit import split_text_with_diagnostics
@@ -62,7 +64,11 @@ for segment in result.segments:
     process(segment.text)
 ```
 
-The diagnostics language is normalized. Forced regex has `backend == "regex"` and no resolution; paragraph mode has `backend == "none"` and also skips model resolution. Automatic fallback retains the resolution record with no selected model, while spaCy diagnostics identify the concrete selected model and size. Existing `split_text()` remains unchanged and returns only its segment list.
+The diagnostics language is normalized. Forced regex has `backend == "regex"` and no
+resolution; paragraph mode has `backend == "none"` and also skips model resolution.
+Automatic fallback retains the resolution record with no selected model, while spaCy
+diagnostics identify the concrete selected model and size. Existing `split_text()`
+remains unchanged and returns only its segment list.
 
 ### Character Offsets
 

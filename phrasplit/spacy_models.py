@@ -171,6 +171,7 @@ def clear_spacy_model_cache() -> None:
     _LOADED_MODEL_CACHE.clear()
     installed_spacy_models.cache_clear()
 
+
 def _load_model(spacy: Any, model: str) -> Any:
     cached = _LOADED_MODEL_CACHE.get(model)
     if cached is not None:
@@ -323,12 +324,7 @@ def resolve_spacy_model(
                 size=size,
                 candidates=(candidate,),
                 attempts=(SpacyModelAttempt(candidate, False, str(exc)),),
-                diagnostics=(
-                    (
-                        f"explicit model '{candidate}' "
-                        f"{failure}"
-                    ),
-                ),
+                diagnostics=((f"explicit model '{candidate}' {failure}"),),
                 available=candidate_available,
             )
             status = (

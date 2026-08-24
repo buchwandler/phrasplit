@@ -135,13 +135,15 @@ segments = split_text(text, mode="clause")
 # Use simple mode (no spaCy)
 segments = split_text(text, mode="sentence", use_spacy=False)
 ```
+
 ### split_text_with_diagnostics
 
 ```{eval-rst}
 .. autofunction:: phrasplit.split_text_with_diagnostics
 ```
 
-Use this additive API when a caller needs the backend/model chosen by the actual split operation. It returns a `SplitTextResult` with `segments` and frozen `SplitDiagnostics`:
+Use this additive API when a caller needs the backend/model chosen by the actual split
+operation. It returns a `SplitTextResult` with `segments` and frozen `SplitDiagnostics`:
 
 ```python
 from phrasplit import split_text_with_diagnostics
@@ -152,7 +154,12 @@ print(result.diagnostics.selected_model)
 print(result.diagnostics.selected_model_size)
 ```
 
-`SplitDiagnostics.backend` is `"none"` for paragraph mode, `"regex"` for the regex backend, and `"spacy"` for spaCy. `resolution` is `None` for forced regex and paragraph mode; automatic fallback retains a resolution whose selected model is `None`. The existing `split_text()` function remains a compatibility wrapper returning `list[Segment]`.
+`SplitDiagnostics.backend` is `"none"` for paragraph mode, `"regex"` for the regex
+backend, and `"spacy"` for spaCy. `resolution` is `None` for forced regex and paragraph
+mode; automatic fallback retains a resolution whose selected model is `None`. The
+existing `split_text()` function remains a compatibility wrapper returning
+`list[Segment]`.
+
 ### split_long_lines
 
 ```{eval-rst}

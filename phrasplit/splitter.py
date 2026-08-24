@@ -73,6 +73,7 @@ class SplitTextResult:
     segments: list[Segment]
     diagnostics: SplitDiagnostics
 
+
 if TYPE_CHECKING:
     from spacy.language import Language  # type: ignore[import-not-found]
 
@@ -683,6 +684,17 @@ def _get_nlp(language_model: str) -> Language:
         ImportError: If spaCy is not installed
         OSError: If the specified language model is not found
     """
+    if language_model in _nlp_cache:
+        return _nlp_cache[language_model]
+
+    # Model resolution may already have loaded the model through the optional
+    # spaCy integration. Reuse that cache before importing spaCy directly so
+    # callers that provide a resolved model do not need spaCy imported twice.
+    cached = get_cached_spacy_model(language_model)
+    if cached is not None:
+        _nlp_cache[language_model] = cached
+        return cached
+
     try:
         spacy = importlib.import_module("spacy")
     except ImportError as exc:
@@ -692,15 +704,13 @@ def _get_nlp(language_model: str) -> Language:
             "Then install a compatible local language model."
         ) from exc
 
-    if language_model not in _nlp_cache:
-        try:
-            cached = get_cached_spacy_model(language_model)
-            _nlp_cache[language_model] = cached or spacy.load(language_model)
-        except OSError:
-            raise OSError(
-                f"spaCy language model '{language_model}' not found. "
-                f"Install the model locally before using it."
-            ) from None
+    try:
+        _nlp_cache[language_model] = spacy.load(language_model)
+    except OSError:
+        raise OSError(
+            f"spaCy language model '{language_model}' not found. "
+            f"Install the model locally before using it."
+        ) from None
 
     return _nlp_cache[language_model]
 
@@ -847,9 +857,7 @@ def _process_long_text_with_offsets(
                 and not sent.text.isspace()
                 and sent.end_char < len(chunk) - safety_margin
             ):
-                offsets.append(
-                    (start_idx + sent.start_char, start_idx + sent.end_char)
-                )
+                offsets.append((start_idx + sent.start_char, start_idx + sent.end_char))
                 last_complete_end = sent.end_char
 
         if last_complete_end > 0:
@@ -1555,6 +1563,7 @@ def split_text_with_diagnostics(
         ),
     )
 
+
 def split_text(
     text: str,
     mode: str = "sentence",
@@ -1577,6 +1586,7 @@ def split_text(
         language=language,
         model_size=model_size,
     ).segments
+
 
 # =============================================================================
 # Offset-preserving segmentation
@@ -2232,7 +2242,6 @@ def _split_with_offsets_regex(
                         meta={"method": "regex", "mode": "clause"},
                     )
                     result.append(segment)
-
 
         para_idx += 1
 

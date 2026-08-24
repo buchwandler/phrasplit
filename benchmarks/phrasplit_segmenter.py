@@ -18,7 +18,7 @@ import sys
 # Add parent directory to path so we can import phrasplit
 sys.path.insert(0, str(__file__).rsplit("/", 2)[0])
 
-from phrasplit import split_sentences  # noqa: E402
+from phrasplit import split_sentences
 
 # Language to spaCy model mapping
 LANG_TO_MODEL = {
@@ -177,8 +177,7 @@ def main() -> None:
                 )
 
                 # Write each sentence on its own line
-                for sentence in sentences:
-                    output_f.write(sentence + "\n")
+                output_f.writelines(sentence + "\n" for sentence in sentences)
 
 
 if __name__ == "__main__":

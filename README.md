@@ -91,7 +91,9 @@ split_text(text, language="en", model_size="lg")        # exact tier, no fallbac
 split_text(text, language="en", use_spacy=False)        # force regex
 ```
 
-For integrations that need to report which backend and model were actually used, use the additive detailed API. It performs backend/model resolution once and leaves `split_text()`'s list return contract unchanged:
+For integrations that need to report which backend and model were actually used, use the
+additive detailed API. It performs backend/model resolution once and leaves
+`split_text()`'s list return contract unchanged:
 
 ```python
 from phrasplit import split_text_with_diagnostics

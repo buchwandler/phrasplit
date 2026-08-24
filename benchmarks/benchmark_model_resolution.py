@@ -51,14 +51,8 @@ def main() -> None:
 
     print(f"cold automatic resolution: {cold:.6f}s (1 call)")
     print(f"warm automatic resolution: {warm:.6f}s ({args.iterations} calls)")
-    print(
-        f"automatic split_text: {automatic_split:.6f}s "
-        f"({args.iterations} calls)"
-    )
-    print(
-        f"forced-regex split_text: {forced_regex:.6f}s "
-        f"({args.iterations} calls)"
-    )
+    print(f"automatic split_text: {automatic_split:.6f}s ({args.iterations} calls)")
+    print(f"forced-regex split_text: {forced_regex:.6f}s ({args.iterations} calls)")
 
 
 if __name__ == "__main__":

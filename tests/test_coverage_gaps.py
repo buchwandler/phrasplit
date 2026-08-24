@@ -22,10 +22,9 @@ import pytest
 from click.testing import CliRunner
 
 import phrasplit
-import phrasplit.cli as cli
 import phrasplit.spacy_models as models
-import phrasplit.splitter as splitter
 import phrasplit.splitter_without_spacy as simple
+from phrasplit import cli, splitter
 from phrasplit.abbreviations import get_abbreviations
 from phrasplit.spacy_models import (
     _distribution_model_names as _real_distribution_model_names,

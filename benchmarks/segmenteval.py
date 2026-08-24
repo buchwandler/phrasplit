@@ -192,8 +192,10 @@ def save_errors(
         )
         f.write("# Format: [error_num] (test_sentence_num) context\n")
         f.write("#" + "=" * 78 + "\n\n")
-        for i, (sent_num, ctx) in enumerate(metrics.false_positive_contexts, 1):
-            f.write(f"[{i}] (sentence {sent_num}) {ctx}\n\n")
+        f.writelines(
+            f"[{i}] (sentence {sent_num}) {ctx}\n\n"
+            for i, (sent_num, ctx) in enumerate(metrics.false_positive_contexts, 1)
+        )
     print(f"Saved false positives to: {fp_file}")
 
     # Save false negatives (missed breaks)
@@ -205,8 +207,10 @@ def save_errors(
         )
         f.write("# Format: [error_num] (gold_sentence_num) context\n")
         f.write("#" + "=" * 78 + "\n\n")
-        for i, (sent_num, ctx) in enumerate(metrics.false_negative_contexts, 1):
-            f.write(f"[{i}] (sentence {sent_num}) {ctx}\n\n")
+        f.writelines(
+            f"[{i}] (sentence {sent_num}) {ctx}\n\n"
+            for i, (sent_num, ctx) in enumerate(metrics.false_negative_contexts, 1)
+        )
     print(f"Saved false negatives to: {fn_file}")
 
 

@@ -580,7 +580,7 @@ class TestContentPreservation:
         for text in test_cases:
             result = split_sentences_simple(text)
             # Empty/whitespace should return empty list
-            assert result == [], f"Non-empty result for whitespace: {repr(text)}"
+            assert result == [], f"Non-empty result for whitespace: {text!r}"
 
     def test_single_characters(self) -> None:
         """Test single character inputs."""
@@ -591,7 +591,7 @@ class TestContentPreservation:
             if text.strip():
                 # Non-whitespace single char should be preserved
                 joined = " ".join(result)
-                assert text.strip() in joined, f"Single char lost: {repr(text)}"
+                assert text.strip() in joined, f"Single char lost: {text!r}"
 
     def test_real_world_examples(self) -> None:
         """Test real-world text examples."""
