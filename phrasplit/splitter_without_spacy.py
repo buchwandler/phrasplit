@@ -187,7 +187,7 @@ def split_sentences_simple(
         remains less accurate than the spaCy implementation for complex text.
     """
     if not isinstance(text, str):
-        raise ValueError("Input must be a string.")
+        raise ValueError("Input must be a string.")  # noqa: TRY004 - compatibility
 
     if not text.strip():
         return []
@@ -367,7 +367,7 @@ def split_sentences_simple(
             stacklevel=2,
         )
         return [text.strip()]
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - fallback must not crash callers
         warnings.warn(
             f"Unexpected error in sentence splitting: {e}",
             stacklevel=2,

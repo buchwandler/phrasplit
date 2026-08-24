@@ -4,9 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 
+import phrasplit
 import phrasplit.spacy_models as models
-import phrasplit.splitter as splitter
-from phrasplit import split_sentences
+from phrasplit import split_sentences, splitter
 
 
 class FakeSpacy:
@@ -34,6 +34,7 @@ class FakeSpacy:
 def clear_model_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     models.clear_spacy_model_cache()
     monkeypatch.setattr(models, "_distribution_model_names", lambda: set())
+    monkeypatch.setattr(splitter, "_nlp_cache", {})
     yield
     models.clear_spacy_model_cache()
 
@@ -280,3 +281,218 @@ def test_abbreviations_fall_back_to_language() -> None:
     assert "Dr" in get_abbreviations(language="en-US")
     assert "Dr" in get_abbreviations("en_core_web_future")
     assert get_abbreviations("auto", language="de")
+
+
+def test_installed_model_discovery_is_cached(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeSpacy(["en_core_web_sm"])
+    install_fake_spacy(monkeypatch, fake)
+    calls = 0
+
+    def fake_distribution_models() -> set[str]:
+        nonlocal calls
+        calls += 1
+        return {"en_core_web_sm"}
+
+    monkeypatch.setattr(models, "_distribution_model_names", fake_distribution_models)
+    models.clear_spacy_model_cache()
+
+    first = models.installed_spacy_models()
+    second = models.installed_spacy_models()
+
+    assert first == ("en_core_web_sm",)
+    assert second == first
+    assert calls == 1
+
+
+def test_clear_spacy_model_cache_invalidates_discovery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeSpacy(["en_core_web_sm"])
+    install_fake_spacy(monkeypatch, fake)
+    calls = 0
+
+    def fake_distribution_models() -> set[str]:
+        nonlocal calls
+        calls += 1
+        return set()
+
+    monkeypatch.setattr(models, "_distribution_model_names", fake_distribution_models)
+    models.installed_spacy_models()
+    models.installed_spacy_models()
+    assert calls == 1
+
+    models.clear_spacy_model_cache()
+    models.installed_spacy_models()
+    assert calls == 2
+
+
+def test_detailed_split_forced_regex_has_no_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_resolution(**_: object) -> object:
+        raise AssertionError("regex mode must not invoke model resolution")
+
+    monkeypatch.setattr(splitter, "resolve_spacy_model", fail_resolution)
+    result = phrasplit.split_text_with_diagnostics(
+        "Dr. Smith arrived.", use_spacy=False, language="en-US"
+    )
+
+    assert result.diagnostics.backend == "regex"
+    assert result.diagnostics.language == "en"
+    assert result.diagnostics.resolution is None
+    assert result.diagnostics.selected_model is None
+
+
+def test_detailed_split_paragraph_has_no_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_resolution(**_: object) -> object:
+        raise AssertionError("paragraph mode must not invoke model resolution")
+
+    monkeypatch.setattr(splitter, "resolve_spacy_model", fail_resolution)
+    result = phrasplit.split_text_with_diagnostics(
+        "First paragraph.\n\nSecond paragraph.",
+        mode="paragraph",
+        language="en-US",
+    )
+
+    assert result.diagnostics.backend == "none"
+    assert result.diagnostics.language == "en"
+    assert result.diagnostics.resolution is None
+    assert [segment.text for segment in result.segments] == [
+        "First paragraph.",
+        "Second paragraph.",
+    ]
+
+
+def test_detailed_split_reports_automatic_regex_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeSpacy([])
+    install_fake_spacy(monkeypatch, fake)
+    result = phrasplit.split_text_with_diagnostics("Hello world.")
+
+    assert result.diagnostics.backend == "regex"
+    assert result.diagnostics.resolution is not None
+    assert result.diagnostics.resolution.model is None
+    assert result.diagnostics.language == "en"
+
+
+def test_detailed_split_reports_actual_spacy_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeSpacy(["en_core_web_sm"])
+    install_fake_spacy(monkeypatch, fake)
+    monkeypatch.setattr(
+        splitter,
+        "_process_long_text",
+        lambda *_args, **_kwargs: ["Hello world."],
+    )
+    result = phrasplit.split_text_with_diagnostics("Hello world.")
+
+    assert result.diagnostics.backend == "spacy"
+    assert result.diagnostics.selected_model == "en_core_web_sm"
+    assert result.diagnostics.selected_model_size == "sm"
+    assert result.diagnostics.resolution is not None
+    assert result.diagnostics.resolution.model == "en_core_web_sm"
+
+
+def test_detailed_split_resolves_backend_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    resolution = models.SpacyModelResolution(
+        language="en",
+        model=None,
+        model_size=None,
+        requested_model=None,
+        requested_size=None,
+        candidates=(),
+        attempts=(),
+        available=False,
+        loadable=False,
+        diagnostics=(),
+    )
+
+    def fake_resolve(**_: object) -> models.SpacyModelResolution:
+        nonlocal calls
+        calls += 1
+        return resolution
+
+    monkeypatch.setattr(splitter, "resolve_spacy_model", fake_resolve)
+    result = phrasplit.split_text_with_diagnostics("Hello world.")
+
+    assert calls == 1
+    assert result.diagnostics.resolution is resolution
+
+
+def test_split_text_compatibility_wrapper_returns_segments() -> None:
+    detailed = phrasplit.split_text_with_diagnostics(
+        "Hello world.", use_spacy=False
+    )
+    legacy = phrasplit.split_text("Hello world.", use_spacy=False)
+
+    assert isinstance(legacy, list)
+    assert legacy == detailed.segments
+
+
+def test_split_text_compatibility_wrapper_resolves_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def fake_resolve(**kwargs: object) -> models.SpacyModelResolution:
+        nonlocal calls
+        calls += 1
+        return models.SpacyModelResolution(
+            language="en",
+            model=None,
+            model_size=None,
+            requested_model=None,
+            requested_size=None,
+            candidates=(),
+            attempts=(),
+            available=False,
+            loadable=False,
+            diagnostics=(),
+        )
+
+    monkeypatch.setattr(splitter, "resolve_spacy_model", fake_resolve)
+    segments = phrasplit.split_text("Hello world.")
+
+    assert segments
+    assert calls == 1
+
+
+def test_explicit_model_and_size_warn_once_in_detailed_split(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeSpacy(["en_core_web_sm"])
+    install_fake_spacy(monkeypatch, fake)
+    monkeypatch.setattr(
+        splitter,
+        "_process_long_text",
+        lambda *_args, **_kwargs: ["Hello world."],
+    )
+
+    with pytest.warns(UserWarning, match="model_size is ignored") as caught:
+        result = phrasplit.split_text_with_diagnostics(
+            "Hello world.",
+            language_model="en_core_web_sm",
+            model_size="lg",
+        )
+
+    assert len(caught) == 1
+    assert result.diagnostics.selected_model == "en_core_web_sm"
+
+
+@pytest.mark.spacy_model
+def test_detailed_split_real_model_resolution(spacy_model_name: str) -> None:
+    result = phrasplit.split_text_with_diagnostics(
+        "Hello world.",
+        language_model=spacy_model_name,
+        use_spacy=True,
+    )
+
+    assert result.diagnostics.backend == "spacy"
+    assert result.diagnostics.selected_model == spacy_model_name

@@ -12,6 +12,7 @@ import importlib.metadata
 import re
 import warnings
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Literal
 
 SpacyModelSize = Literal["sm", "md", "lg", "trf"]
@@ -166,10 +167,9 @@ def get_cached_spacy_model(model: str) -> Any | None:
 
 
 def clear_spacy_model_cache() -> None:
-    """Clear resolver loadability cache (primarily useful for test isolation)."""
-
+    """Clear loaded-model and installed-model discovery caches."""
     _LOADED_MODEL_CACHE.clear()
-
+    installed_spacy_models.cache_clear()
 
 def _load_model(spacy: Any, model: str) -> Any:
     cached = _LOADED_MODEL_CACHE.get(model)
@@ -184,7 +184,7 @@ def _distribution_model_names() -> set[str]:
     names: set[str] = set()
     try:
         distributions = importlib.metadata.distributions()
-    except Exception:
+    except Exception:  # noqa: BLE001 - discovery must degrade gracefully
         distributions = ()
     for distribution in distributions:
         name = distribution.metadata.get("Name")
@@ -193,6 +193,7 @@ def _distribution_model_names() -> set[str]:
     return names
 
 
+@lru_cache(maxsize=1)
 def installed_spacy_models() -> tuple[str, ...]:
     """Enumerate locally installed spaCy model package names.
 
@@ -209,7 +210,7 @@ def installed_spacy_models() -> tuple[str, ...]:
             names.update(
                 str(name).lower().replace("-", "_") for name in get_installed()
             )
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 - utility failures are optional
             pass
     names.update(_distribution_model_names())
     return tuple(sorted(names))
@@ -312,6 +313,7 @@ def resolve_spacy_model(
         candidate = requested_model
         installed = set(installed_spacy_models())
         candidate_available = candidate.lower().replace("-", "_") in installed
+        failure = "is missing" if not candidate_available else "failed to load"
         try:
             _load_model(spacy, candidate)
         except Exception as exc:
@@ -322,8 +324,10 @@ def resolve_spacy_model(
                 candidates=(candidate,),
                 attempts=(SpacyModelAttempt(candidate, False, str(exc)),),
                 diagnostics=(
-                    f"explicit model '{candidate}' "
-                    f"{'is missing' if not candidate_available else 'failed to load'}",
+                    (
+                        f"explicit model '{candidate}' "
+                        f"{failure}"
+                    ),
                 ),
                 available=candidate_available,
             )
@@ -357,7 +361,7 @@ def resolve_spacy_model(
     for candidate in candidates:
         try:
             _load_model(spacy, candidate)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - model loaders expose varied errors
             attempts.append(SpacyModelAttempt(candidate, False, str(exc)))
             continue
         return SpacyModelResolution(
@@ -380,8 +384,10 @@ def resolve_spacy_model(
         candidates=candidates,
         attempts=tuple(attempts),
         diagnostics=(
-            "no loadable official spaCy model found for language "
-            f"'{normalized_language}'",
+            (
+                "no loadable official spaCy model found for language "
+                f"'{normalized_language}'"
+            ),
         ),
     )
     if require:

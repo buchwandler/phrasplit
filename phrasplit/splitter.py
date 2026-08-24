@@ -14,7 +14,8 @@ import importlib
 import re
 import warnings
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, NamedTuple
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from phrasplit.abbreviations import (
     get_abbreviations,
@@ -45,6 +46,32 @@ class Segment(NamedTuple):
     paragraph: int
     sentence: int | None = None
 
+
+@dataclass(frozen=True)
+class SplitDiagnostics:
+    """Resolution details produced by one public split operation."""
+
+    backend: Literal["none", "regex", "spacy"]
+    language: str
+    resolution: SpacyModelResolution | None
+
+    @property
+    def selected_model(self) -> str | None:
+        """Return the concrete model selected for this split, if any."""
+        return self.resolution.selected_model if self.resolution else None
+
+    @property
+    def selected_model_size(self) -> SpacyModelSize | None:
+        """Return the selected model tier, if any."""
+        return self.resolution.model_size if self.resolution else None
+
+
+@dataclass
+class SplitTextResult:
+    """Segments and backend diagnostics from a detailed split operation."""
+
+    segments: list[Segment]
+    diagnostics: SplitDiagnostics
 
 if TYPE_CHECKING:
     from spacy.language import Language  # type: ignore[import-not-found]
@@ -454,21 +481,24 @@ def _merge_abbreviation_splits(
                 abbrev = match.group(1)
                 abbrev_key = abbrev.replace(".", "")
                 is_dotted = "." in abbrev
-                if abbrev_key and abbrev_key not in sentence_ending_abbrevs:
-                    if abbrev_key in abbreviations or is_dotted:
-                        first_word = _extract_leading_word(next_sent)
-                        if first_word:
-                            first_cased = _first_cased_char(first_word)
-                            if (
-                                first_cased
-                                and first_cased.isupper()
-                                and first_word not in sentence_starters
-                                and not first_word.isupper()
-                            ):
-                                merged = current + " " + next_sent
-                                result.append(merged)
-                                i += 2
-                                continue
+                if (
+                    abbrev_key
+                    and abbrev_key not in sentence_ending_abbrevs
+                    and (abbrev_key in abbreviations or is_dotted)
+                ):
+                    first_word = _extract_leading_word(next_sent)
+                    if first_word:
+                        first_cased = _first_cased_char(first_word)
+                        if (
+                            first_cased
+                            and first_cased.isupper()
+                            and first_word not in sentence_starters
+                            and not first_word.isupper()
+                        ):
+                            merged = current + " " + next_sent
+                            result.append(merged)
+                            i += 2
+                            continue
 
         result.append(current)
         i += 1
@@ -812,12 +842,15 @@ def _process_long_text_with_offsets(
 
         last_complete_end = 0
         for sent in doc.sents:
-            if sent.text and not sent.text.isspace():
-                if sent.end_char < len(chunk) - safety_margin:
-                    offsets.append(
-                        (start_idx + sent.start_char, start_idx + sent.end_char)
-                    )
-                    last_complete_end = sent.end_char
+            if (
+                sent.text
+                and not sent.text.isspace()
+                and sent.end_char < len(chunk) - safety_margin
+            ):
+                offsets.append(
+                    (start_idx + sent.start_char, start_idx + sent.end_char)
+                )
+                last_complete_end = sent.end_char
 
         if last_complete_end > 0:
             start_idx += last_complete_end
@@ -1345,7 +1378,7 @@ def split_long_lines(
         )
 
 
-def split_text(
+def split_text_with_diagnostics(
     text: str,
     mode: str = "sentence",
     language_model: str | None = None,
@@ -1355,15 +1388,14 @@ def split_text(
     *,
     language: str = "en",
     model_size: SpacyModelSize | None = None,
-) -> list[Segment]:
+) -> SplitTextResult:
     """
-    Split text into segments with hierarchical position information.
+    Split text and return segments with the resolution used for the operation.
 
     This function provides a unified interface for text splitting with different
-    granularity levels, while preserving paragraph and sentence structure information.
-    Useful for audiobook generation where different pause lengths are needed
-    between paragraphs vs. sentences vs. clauses.
-
+    granularity levels, preserving paragraph and sentence structure information
+    while exposing backend/model diagnostics without a second resolution pass.
+    Useful for integrations that need to report or map the selected backend.
     Args:
         text: Input text to split
         mode: Splitting mode. Valid values are ``"paragraph"``, ``"sentence"``,
@@ -1382,11 +1414,8 @@ def split_text(
         model_size: Optional exact model tier; it never falls back to another tier.
 
     Returns:
-        List of Segment namedtuples, each containing:
-            - text: The segment text
-            - paragraph: Paragraph index (0-based)
-            - sentence: Sentence index within paragraph (0-based).
-              None for paragraph mode.
+        A SplitTextResult containing the list of Segment objects and
+        SplitDiagnostics from the same backend/model resolution operation.
 
     Raises:
         ValueError: If mode is not one of "paragraph", "sentence", "clause"
@@ -1396,18 +1425,16 @@ def split_text(
 
     Example::
 
-        >>> segments = split_text("Hello world. How are you?\\n\\nNew paragraph.")
-        >>> for seg in segments:
+        >>> result = split_text_with_diagnostics(
+        ...     "Hello world. How are you?\n\nNew paragraph."
+        ... )
+        >>> print(result.diagnostics.backend)
+        spacy
+        >>> for seg in result.segments:
         ...     print(f"P{seg.paragraph} S{seg.sentence}: {seg.text}")
         P0 S0: Hello world.
         P0 S1: How are you?
         P1 S0: New paragraph.
-
-        >>> # Detect paragraph changes for longer pauses
-        >>> for i, seg in enumerate(segments):
-        ...     if i > 0 and seg.paragraph != segments[i-1].paragraph:
-        ...         print("--- paragraph break ---")
-        ...     print(seg.text)
     """
     # Deprecation warning
     if not split_on_colon:
@@ -1421,21 +1448,34 @@ def split_text(
     valid_modes = ("paragraph", "sentence", "clause")
     if mode not in valid_modes:
         raise ValueError(f"mode must be one of {valid_modes}, got {mode!r}")
-
+    normalized_language = normalize_spacy_language(language)
     paragraphs = split_paragraphs(text)
 
     if not paragraphs:
-        return []
+        return SplitTextResult(
+            segments=[],
+            diagnostics=SplitDiagnostics(
+                backend="none",
+                language=normalized_language,
+                resolution=None,
+            ),
+        )
 
     result: list[Segment] = []
 
     if mode == "paragraph":
         for para_idx, para in enumerate(paragraphs):
             result.append(Segment(text=para, paragraph=para_idx, sentence=None))
-        return result
-
+        return SplitTextResult(
+            segments=result,
+            diagnostics=SplitDiagnostics(
+                backend="none",
+                language=normalized_language,
+                resolution=None,
+            ),
+        )
     # Determine which implementation to use for sentence/clause modes
-    use_spacy, resolved_model, normalized_language, _ = _resolve_backend(
+    use_spacy, resolved_model, normalized_language, resolution = _resolve_backend(
         language=language,
         language_model=language_model,
         model_size=model_size,
@@ -1506,8 +1546,37 @@ def split_text(
                             Segment(text=clause, paragraph=para_idx, sentence=sent_idx)
                         )
 
-    return result
+    return SplitTextResult(
+        segments=result,
+        diagnostics=SplitDiagnostics(
+            backend="spacy" if use_spacy else "regex",
+            language=normalized_language,
+            resolution=resolution,
+        ),
+    )
 
+def split_text(
+    text: str,
+    mode: str = "sentence",
+    language_model: str | None = None,
+    apply_corrections: bool = True,
+    split_on_colon: bool = True,
+    use_spacy: bool | None = None,
+    *,
+    language: str = "en",
+    model_size: SpacyModelSize | None = None,
+) -> list[Segment]:
+    """Compatibility wrapper returning only segments from a detailed split."""
+    return split_text_with_diagnostics(
+        text,
+        mode=mode,
+        language_model=language_model,
+        apply_corrections=apply_corrections,
+        split_on_colon=split_on_colon,
+        use_spacy=use_spacy,
+        language=language,
+        model_size=model_size,
+    ).segments
 
 # =============================================================================
 # Offset-preserving segmentation
@@ -1592,28 +1661,31 @@ def _merge_abbreviation_splits_with_offsets(
         current_text, current_start, current_end = segments[i]
 
         if i + 1 < len(segments):
-            next_text, next_start, next_end = segments[i + 1]
+            next_text, _next_start, next_end = segments[i + 1]
 
             match = _ABBREV_END_PATTERN.search(current_text.rstrip())
             if match:
                 abbrev = match.group(1)
                 abbrev_key = abbrev.replace(".", "")
                 is_dotted = "." in abbrev
-                if abbrev_key and abbrev_key not in sentence_ending_abbrevs:
-                    if abbrev_key in abbreviations or is_dotted:
-                        first_word = _extract_leading_word(next_text)
-                        if first_word:
-                            first_cased = _first_cased_char(first_word)
-                            if (
-                                first_cased
-                                and first_cased.isupper()
-                                and first_word not in sentence_starters
-                                and not first_word.isupper()
-                            ):
-                                merged_text = text[current_start:next_end]
-                                result.append((merged_text, current_start, next_end))
-                                i += 2
-                                continue
+                if (
+                    abbrev_key
+                    and abbrev_key not in sentence_ending_abbrevs
+                    and (abbrev_key in abbreviations or is_dotted)
+                ):
+                    first_word = _extract_leading_word(next_text)
+                    if first_word:
+                        first_cased = _first_cased_char(first_word)
+                        if (
+                            first_cased
+                            and first_cased.isupper()
+                            and first_word not in sentence_starters
+                            and not first_word.isupper()
+                        ):
+                            merged_text = text[current_start:next_end]
+                            result.append((merged_text, current_start, next_end))
+                            i += 2
+                            continue
 
         result.append((current_text, current_start, current_end))
         i += 1
@@ -2112,8 +2184,11 @@ def _split_with_offsets_regex(
                 language=language,
             )
 
-        sent_idx = 0
-        for sent_text, sent_offset_in_para, sent_end_in_para in sentences_with_offsets:
+        for sent_idx, (
+            sent_text,
+            sent_offset_in_para,
+            sent_end_in_para,
+        ) in enumerate(sentences_with_offsets):
             # Calculate absolute offsets
             sent_start = para_start + sent_offset_in_para
             sent_end = para_start + sent_end_in_para
@@ -2158,7 +2233,6 @@ def _split_with_offsets_regex(
                     )
                     result.append(segment)
 
-            sent_idx += 1
 
         para_idx += 1
 
