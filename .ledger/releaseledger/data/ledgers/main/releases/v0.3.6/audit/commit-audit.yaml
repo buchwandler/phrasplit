@@ -1,0 +1,59 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 2
+release_version: v0.3.6
+git_base_ref: v0.3.5
+git_base_sha: fa77b3208380d3b16ed229680fe30c6e8ed12968
+git_head_ref: HEAD
+git_head_sha: 73c8dfa5d85422ab50b1e76eb2178347a49529cd
+git_range: fa77b3208380d3b16ed229680fe30c6e8ed12968..73c8dfa5d85422ab50b1e76eb2178347a49529cd
+commit_count: 1
+rows:
+- sha: 73c8dfa5d85422ab50b1e76eb2178347a49529cd
+  source_ref: git:73c8dfa5d85422ab50b1e76eb2178347a49529cd
+  short_sha: 73c8dfa
+  changed_paths:
+  - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.6/entries/entry-0001.md
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.6/entries/entry-0002.md
+  - .ledger/releaseledger/data/ledgers/main/releases/v0.3.6/release.md
+  - README.md
+  - docs/api.md
+  - docs/integration.md
+  - docs/offsets.md
+  - phrasplit/__init__.py
+  - phrasplit/spacy_models.py
+  - phrasplit/splitter.py
+  - phrasplit/splitter_without_spacy.py
+  - tests/test_offsets.py
+  - tests/test_spacy_model_selection.py
+  stats:
+    files_changed: 0
+    insertions: 416
+    deletions: 39
+  inspected: true
+  inspected_paths:
+  - README.md
+  - docs/api.md
+  - docs/integration.md
+  - docs/offsets.md
+  - phrasplit/__init__.py
+  - phrasplit/spacy_models.py
+  - phrasplit/splitter.py
+  - phrasplit/splitter_without_spacy.py
+  - tests/test_offsets.py
+  - tests/test_spacy_model_selection.py
+  observed_behavior: Adds a public offset-preserving API that returns segments together
+    with the backend and model resolution used by that operation, while retaining
+    the existing list-returning offset API as a compatibility wrapper. Backend resolution
+    is performed once, exact source-slice offsets remain validated, and the change
+    is covered by focused offset and model-selection tests and updated integration
+    documentation.
+  public_impact: public
+  decision: accepted
+  evidence_subject: 'feat: add split with offsets and diagnostics'
+  target_entry_key: entry-0001
+  notes: Release entry entry-0001 covers the commit source reference; ledger-only
+    files were excluded from the inspected product paths.
