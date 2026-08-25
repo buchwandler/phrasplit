@@ -12,11 +12,11 @@ status: accepted
 audience: null
 scopes: []
 source_refs:
-- tl:task-0005
-- git:73c8dfa5d85422ab50b1e76eb2178347a49529cd
+  - tl:task-0005
+  - git:73c8dfa5d85422ab50b1e76eb2178347a49529cd
 paths:
-- phrasplit/splitter.py
-- phrasplit/__init__.py
+  - phrasplit/splitter.py
+  - phrasplit/__init__.py
 issues: []
 prs: []
 sources: []
