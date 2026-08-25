@@ -7,6 +7,8 @@ from phrasplit import (
     SplitSegment,
     iter_split_with_offsets,
     split_with_offsets,
+    split_with_offsets_with_diagnostics,
+    splitter,
     suggest_splitting_mode,
     validate_no_placeholder_breaks,
 )
@@ -845,4 +847,53 @@ class TestInlineMarkupMode:
         with pytest.raises(ValueError, match="regex backend"):
             split_with_offsets(
                 "a. b.", mode="sentence", use_spacy=True, inline_markup=True
+            )
+
+    def test_detailed_offset_result_preserves_exact_slice(self) -> None:
+        text = "  First sentence.  \n\n  Second sentence.  "
+        result = split_with_offsets_with_diagnostics(
+            text, mode="sentence", use_spacy=False
+        )
+
+        assert result.segments
+        for segment in result.segments:
+            assert segment.text == text[segment.char_start : segment.char_end]
+
+    def test_detailed_offset_result_max_chars_preserves_exact_slice(self) -> None:
+        text = "word " * 100
+        result = split_with_offsets_with_diagnostics(
+            text, use_spacy=False, max_chars=50
+        )
+
+        assert all(len(segment.text) <= 50 for segment in result.segments)
+        assert all(
+            segment.text == text[segment.char_start : segment.char_end]
+            for segment in result.segments
+        )
+
+    def test_offset_compatibility_wrapper_matches_detailed_result(self) -> None:
+        text = "First sentence. Second sentence."
+        detailed = split_with_offsets_with_diagnostics(text, use_spacy=False)
+        legacy = split_with_offsets(text, use_spacy=False)
+
+        assert legacy == detailed.segments
+
+    def test_detailed_offset_inline_markup_forces_regex_without_resolution(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail_resolution(**_: object) -> object:
+            raise AssertionError("inline markup must not resolve spaCy")
+
+        monkeypatch.setattr(splitter, "resolve_spacy_model", fail_resolution)
+        result = split_with_offsets_with_diagnostics(
+            "<em>Hello.</em> World.", inline_markup=True, use_spacy=None
+        )
+
+        assert result.diagnostics.backend == "regex"
+        assert result.diagnostics.resolution is None
+
+    def test_detailed_offset_inline_markup_rejects_explicit_spacy(self) -> None:
+        with pytest.raises(ValueError):
+            split_with_offsets_with_diagnostics(
+                "<em>Hello.</em>", inline_markup=True, use_spacy=True
             )

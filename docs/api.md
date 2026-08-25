@@ -181,14 +181,32 @@ lines = split_long_lines(text, max_length=40, use_spacy=False)
 ### Offset APIs
 
 ```{eval-rst}
+.. autofunction:: phrasplit.split_with_offsets_with_diagnostics
 .. autofunction:: phrasplit.split_with_offsets
 .. autofunction:: phrasplit.iter_split_with_offsets
 ```
 
-Both APIs preserve `segment.text == text[segment.char_start:segment.char_end]`.
-`inline_markup=True` is available only with the regex backend and raises `ValueError`
-when explicitly combined with spaCy. The iterator is currently a facade over the list
-API and does not claim incremental or bounded-memory processing.
+Use `split_with_offsets_with_diagnostics()` when an integration needs both exact source
+offsets and the backend/model chosen by the operation that produced them. It returns a
+`SplitWithOffsetsResult` containing `segments` and `SplitDiagnostics`:
+
+```python
+from phrasplit import split_with_offsets_with_diagnostics
+
+text = "Hello. World."
+result = split_with_offsets_with_diagnostics(text, language="en")
+
+print(result.diagnostics.backend)
+print(result.diagnostics.selected_model)
+
+for segment in result.segments:
+    assert segment.text == text[segment.char_start:segment.char_end]
+```
+
+`split_with_offsets()` remains a compatibility wrapper returning `list[SplitSegment]`.
+Both APIs preserve the exact-slice invariant. `inline_markup=True` is regex-only and
+raises `ValueError` when explicitly combined with spaCy. The iterator is currently a
+facade over the list API and does not claim incremental or bounded-memory processing.
 
 ## Data Types
 

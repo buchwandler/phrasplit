@@ -151,6 +151,30 @@ assert [segment.text for segment in segments] == [
 assert all(text[s.char_start:s.char_end] == s.text for s in segments)
 ```
 
+## Backend diagnostics without a second resolution pass
+
+When an integration needs both exact source offsets and the backend/model selected for
+that operation, use the detailed offset API:
+
+```python
+from phrasplit import split_with_offsets_with_diagnostics
+
+text = "Hello. World."
+result = split_with_offsets_with_diagnostics(text, language="en")
+
+print(result.diagnostics.backend)
+print(result.diagnostics.selected_model)
+for segment in result.segments:
+    assert segment.text == text[segment.char_start:segment.char_end]
+```
+
+The diagnostics come from the same operation that produced `result.segments`; callers
+should not pre-resolve a model merely to produce metadata. `split_with_offsets()`
+remains the backward-compatible list-returning wrapper. The exact-slice policy remains
+the primary contract for both APIs.
+
+### Optional inline XHTML markup
+
 Passing `inline_markup=True` with `use_spacy=True` raises `ValueError` because this mode
 depends on regex tag balancing.
 

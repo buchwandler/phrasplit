@@ -311,7 +311,7 @@ def split_sentences_simple(
         punct_map = {}
         punct_counter = [0]  # Use list to allow modification in nested function
 
-        def replace_closing_punct(match):
+        def replace_closing_punct(match: re.Match[str]) -> str:
             """Replace closing punctuation with placeholder that preserves original."""
             punct_counter[0] += 1
             placeholder = f"<CLOSING{punct_counter[0]}>"

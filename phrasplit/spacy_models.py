@@ -188,7 +188,7 @@ def _distribution_model_names() -> set[str]:
     except Exception:  # noqa: BLE001 - discovery must degrade gracefully
         distributions = ()
     for distribution in distributions:
-        name = distribution.metadata.get("Name")
+        name = distribution.metadata["Name"]
         if name:
             names.add(name.lower().replace("-", "_"))
     return names
@@ -241,7 +241,7 @@ def _rank_candidates(candidates: list[str], size: SpacyModelSize | None) -> list
             if infer_spacy_model_size(candidate) in allowed
         },
         key=lambda candidate: (
-            _MODEL_SIZES.index(infer_spacy_model_size(candidate)),  # type: ignore[arg-type]
+            _MODEL_SIZES.index(infer_spacy_model_size(candidate)),
             candidate,
         ),
     )
@@ -312,8 +312,8 @@ def resolve_spacy_model(
 
     if requested_model:
         candidate = requested_model
-        installed = set(installed_spacy_models())
-        candidate_available = candidate.lower().replace("-", "_") in installed
+        installed_names = set(installed_spacy_models())
+        candidate_available = candidate.lower().replace("-", "_") in installed_names
         failure = "is missing" if not candidate_available else "failed to load"
         try:
             _load_model(spacy, candidate)

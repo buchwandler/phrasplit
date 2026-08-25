@@ -15,7 +15,7 @@ import re
 import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, NamedTuple
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 
 from phrasplit.abbreviations import (
     get_abbreviations,
@@ -74,8 +74,16 @@ class SplitTextResult:
     diagnostics: SplitDiagnostics
 
 
+@dataclass
+class SplitWithOffsetsResult:
+    """Offset-preserving segments and diagnostics from one split operation."""
+
+    segments: list[SplitSegment]
+    diagnostics: SplitDiagnostics
+
+
 if TYPE_CHECKING:
-    from spacy.language import Language  # type: ignore[import-not-found]
+    from spacy.language import Language
 
 # Kept as a compatibility attribute for callers that inspected the old module;
 # spaCy itself is imported lazily only after backend selection requests it.
@@ -693,7 +701,7 @@ def _get_nlp(language_model: str) -> Language:
     cached = get_cached_spacy_model(language_model)
     if cached is not None:
         _nlp_cache[language_model] = cached
-        return cached
+        return _nlp_cache[language_model]
 
     try:
         spacy = importlib.import_module("spacy")
@@ -742,7 +750,7 @@ def _resolve_backend(
     return False, language_model, normalized_language, resolution
 
 
-def _extract_sentences(doc) -> list[str]:
+def _extract_sentences(doc: Any) -> list[str]:
     """Extract sentences from a spaCy Doc object.
 
     Args:
@@ -2485,7 +2493,7 @@ def _apply_max_chars_split(
     return result
 
 
-def split_with_offsets(
+def split_with_offsets_with_diagnostics(
     text: str,
     *,
     mode: str = "sentence",
@@ -2496,9 +2504,11 @@ def split_with_offsets(
     apply_corrections: bool = True,
     max_chars: int | None = None,
     inline_markup: bool = False,
-) -> list[SplitSegment]:
-    """Split text into segments with character offsets and stable IDs.
+) -> SplitWithOffsetsResult:
+    """Split text into offset-preserving segments with backend diagnostics.
 
+    The returned ``SplitWithOffsetsResult`` contains the exact segments produced
+    by this operation and the ``SplitDiagnostics`` for its backend/model choice.
     This is the main API for offset-preserving segmentation, designed for
     downstream processing where exact character positions are critical.
 
@@ -2551,12 +2561,9 @@ def split_with_offsets(
             text) is unchanged when False.
 
     Returns:
-        List of SplitSegment objects, each containing:
-            - id: Stable identifier (e.g., "p0s1c2" or "p0s1:m0")
-            - text: Segment text content (exact slice of input)
-            - char_start, char_end: Character offsets in original text
-            - paragraph_idx, sentence_idx, clause_idx: Hierarchical indices
-            - meta: Additional metadata (method, mode, etc.)
+        A ``SplitWithOffsetsResult`` with ``segments`` containing ``SplitSegment``
+        values and ``diagnostics`` describing the backend/model resolution used for
+        this exact operation.
 
     Raises:
         ValueError: If mode is invalid or max_chars < 1
@@ -2607,9 +2614,10 @@ def split_with_offsets(
     if mode == "paragraph":
         resolved_model = language_model
         normalized_language = normalize_spacy_language(language)
+        resolution = None
         use_spacy = False
     else:
-        use_spacy, resolved_model, normalized_language, _ = _resolve_backend(
+        use_spacy, resolved_model, normalized_language, resolution = _resolve_backend(
             language=language,
             language_model=language_model,
             model_size=model_size,
@@ -2636,7 +2644,42 @@ def split_with_offsets(
         )
 
     _validate_offset_segments(text, segments)
-    return segments
+    return SplitWithOffsetsResult(
+        segments=segments,
+        diagnostics=SplitDiagnostics(
+            backend=(
+                "spacy" if use_spacy else ("none" if mode == "paragraph" else "regex")
+            ),
+            language=normalized_language,
+            resolution=resolution,
+        ),
+    )
+
+
+def split_with_offsets(
+    text: str,
+    *,
+    mode: str = "sentence",
+    use_spacy: bool | None = None,
+    language_model: str | None = None,
+    language: str = "en",
+    model_size: SpacyModelSize | None = None,
+    apply_corrections: bool = True,
+    max_chars: int | None = None,
+    inline_markup: bool = False,
+) -> list[SplitSegment]:
+    """Compatibility wrapper returning only offset-preserving segments."""
+    return split_with_offsets_with_diagnostics(
+        text,
+        mode=mode,
+        use_spacy=use_spacy,
+        language_model=language_model,
+        language=language,
+        model_size=model_size,
+        apply_corrections=apply_corrections,
+        max_chars=max_chars,
+        inline_markup=inline_markup,
+    ).segments
 
 
 def iter_split_with_offsets(

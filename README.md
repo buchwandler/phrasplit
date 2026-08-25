@@ -196,7 +196,25 @@ for seg in segments:
 - Offsets are computed against the original input text
 - Offsets are monotonic and non-overlapping
 
-**Safety Splitting with `max_chars`**
+**Offsets with backend diagnostics**
+
+Use the detailed API when an integration needs exact offsets and the backend/model
+selected by the same operation:
+
+```python
+from phrasplit import split_with_offsets_with_diagnostics
+
+text = "Hello. World."
+result = split_with_offsets_with_diagnostics(text, language="en")
+print(result.diagnostics.backend)
+
+for segment in result.segments:
+    assert text[segment.char_start:segment.char_end] == segment.text
+```
+
+Use `split_text_with_diagnostics()` when ordinary `Segment` objects are sufficient. Do
+not pre-resolve a model just to produce metadata; the offset diagnostics API resolves it
+once. **Safety Splitting with `max_chars`**
 
 ```python
 long_text = "word " * 100

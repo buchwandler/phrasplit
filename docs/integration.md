@@ -47,28 +47,35 @@ for seg in segments:
 
 ## Backend and Model Diagnostics
 
-Use `split_text_with_diagnostics()` when an integration needs to report the backend and
-model selected during the same operation that produced the segments. This avoids a
-diagnostics-only resolver call before splitting:
+Use `split_text_with_diagnostics()` when ordinary `Segment` objects are sufficient. Use
+`split_with_offsets_with_diagnostics()` when source offsets are part of the integration
+contract. For TTS, token-alignment, and markup pipelines, prefer the offset-preserving
+detailed API so diagnostics describe the same operation that produced the offsets.
 
 ```python
-from phrasplit import split_text_with_diagnostics
+from phrasplit import split_with_offsets_with_diagnostics
 
-result = split_text_with_diagnostics(
-    "Hello. World.", language="en", use_spacy=None
+text = "Hello. World."
+result = split_with_offsets_with_diagnostics(
+    "Hello. World.",
+    mode="sentence",
+    language="en",
+    use_spacy=None,
 )
 diagnostics = result.diagnostics
-print(diagnostics.backend)
-print(diagnostics.selected_model)
+
 for segment in result.segments:
+    assert segment.text == text[segment.char_start:segment.char_end]
     process(segment.text)
 ```
 
-The diagnostics language is normalized. Forced regex has `backend == "regex"` and no
-resolution; paragraph mode has `backend == "none"` and also skips model resolution.
-Automatic fallback retains the resolution record with no selected model, while spaCy
-diagnostics identify the concrete selected model and size. Existing `split_text()`
-remains unchanged and returns only its segment list.
+Do not pre-resolve a spaCy model merely to produce metadata. The detailed offset API
+performs backend/model resolution once and returns that resolution with the exact
+segments. Forced regex has `backend == "regex"` and no resolution; paragraph mode has
+`backend == "none"` and skips model resolution. Automatic fallback retains the
+resolution record with no selected model, while spaCy diagnostics identify the concrete
+selected model and size. Existing `split_with_offsets()` and `split_text()`
+compatibility wrappers remain unchanged.
 
 ### Character Offsets
 

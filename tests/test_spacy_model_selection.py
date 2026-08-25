@@ -494,3 +494,131 @@ def test_detailed_split_real_model_resolution(spacy_model_name: str) -> None:
 
     assert result.diagnostics.backend == "spacy"
     assert result.diagnostics.selected_model == spacy_model_name
+
+
+def test_detailed_offset_split_forced_regex_has_no_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_resolution(**_: object) -> object:
+        raise AssertionError("regex mode must not resolve")
+
+    monkeypatch.setattr(splitter, "resolve_spacy_model", fail_resolution)
+    result = phrasplit.split_with_offsets_with_diagnostics(
+        "Dr. Smith arrived.", use_spacy=False, language="en-US"
+    )
+
+    assert result.diagnostics.backend == "regex"
+    assert result.diagnostics.language == "en"
+    assert result.diagnostics.resolution is None
+
+
+def test_detailed_offset_split_paragraph_has_no_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_resolution(**_: object) -> object:
+        raise AssertionError("paragraph mode must not resolve")
+
+    monkeypatch.setattr(splitter, "resolve_spacy_model", fail_resolution)
+    result = phrasplit.split_with_offsets_with_diagnostics(
+        "First.\n\nSecond.", mode="paragraph", language="en-US"
+    )
+
+    assert result.diagnostics.backend == "none"
+    assert result.diagnostics.language == "en"
+    assert result.diagnostics.resolution is None
+
+
+def test_detailed_offset_split_auto_fallback_preserves_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolution = models.SpacyModelResolution(
+        language="en",
+        model=None,
+        model_size=None,
+        requested_model=None,
+        requested_size=None,
+        candidates=(),
+        attempts=(),
+        available=False,
+        loadable=False,
+        diagnostics=(),
+    )
+
+    def fake_resolve(**_: object) -> models.SpacyModelResolution:
+        return resolution
+
+    monkeypatch.setattr(splitter, "resolve_spacy_model", fake_resolve)
+    result = phrasplit.split_with_offsets_with_diagnostics("Hello world.")
+
+    assert result.diagnostics.backend == "regex"
+    assert result.diagnostics.resolution is resolution
+    assert result.diagnostics.selected_model is None
+
+
+def test_detailed_offset_split_reports_actual_spacy_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeSpacy(["en_core_web_sm"])
+    install_fake_spacy(monkeypatch, fake)
+    monkeypatch.setattr(
+        splitter,
+        "_split_with_offsets_spacy",
+        lambda *_args, **_kwargs: [],
+    )
+
+    result = phrasplit.split_with_offsets_with_diagnostics("Hello world.")
+
+    assert result.diagnostics.backend == "spacy"
+    assert result.diagnostics.selected_model == "en_core_web_sm"
+    assert result.diagnostics.selected_model_size == "sm"
+
+
+def test_detailed_offset_split_resolves_backend_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    resolution = models.SpacyModelResolution(
+        language="en",
+        model=None,
+        model_size=None,
+        requested_model=None,
+        requested_size=None,
+        candidates=(),
+        attempts=(),
+        available=False,
+        loadable=False,
+        diagnostics=(),
+    )
+
+    def fake_resolve(**_: object) -> models.SpacyModelResolution:
+        nonlocal calls
+        calls += 1
+        return resolution
+
+    monkeypatch.setattr(splitter, "resolve_spacy_model", fake_resolve)
+    result = phrasplit.split_with_offsets_with_diagnostics("Hello world.")
+
+    assert calls == 1
+    assert result.diagnostics.resolution is resolution
+
+
+def test_detailed_offset_split_explicit_model_size_warns_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeSpacy(["en_core_web_sm"])
+    install_fake_spacy(monkeypatch, fake)
+    monkeypatch.setattr(
+        splitter,
+        "_split_with_offsets_spacy",
+        lambda *_args, **_kwargs: [],
+    )
+
+    with pytest.warns(UserWarning, match="model_size is ignored") as caught:
+        result = phrasplit.split_with_offsets_with_diagnostics(
+            "Hello.",
+            language_model="en_core_web_sm",
+            model_size="lg",
+        )
+
+    assert len(caught) == 1
+    assert result.diagnostics.selected_model == "en_core_web_sm"
