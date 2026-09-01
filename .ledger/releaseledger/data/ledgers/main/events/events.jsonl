@@ -56,3 +56,9 @@
 {"data":{"row_count":1},"event":"audit.created","event_id":"event-0056","record_revisions":{"commit_audit_sheet":1},"release_version":"v0.3.6","schema_version":2}
 {"data":{"updated_rows":1},"event":"audit.updated","event_id":"event-0057","record_revisions":{"commit_audit_sheet":2},"release_version":"v0.3.6","schema_version":2}
 {"data":{"released_at":"2026-08-25"},"event":"release.finalized","event_id":"event-0058","record_revisions":{"release:v0.3.6":5},"release_version":"v0.3.6","schema_version":2}
+{"data":{"status":"planned"},"event":"release.created","event_id":"event-0059","record_revisions":{"release:v0.3.7":1},"release_version":"v0.3.7","schema_version":2}
+{"data":{"fields":["git_base_ref","git_base_sha","git_commit_count","git_head_ref","git_head_sha","git_range"]},"event":"release.updated","event_id":"event-0060","record_revisions":{"release:v0.3.7":2},"release_version":"v0.3.7","schema_version":2}
+{"data":{"row_count":1},"event":"audit.created","event_id":"event-0061","record_revisions":{"commit_audit_sheet":1},"release_version":"v0.3.7","schema_version":2}
+{"data":{"updated_rows":1},"event":"audit.updated","event_id":"event-0062","record_revisions":{"commit_audit_sheet":2},"release_version":"v0.3.7","schema_version":2}
+{"data":{"entry_ids":["entry-0001"],"synced_audit_rows":1},"event":"entry.batch_added","event_id":"event-0063","record_revisions":{"commit_audit_sheet":3,"entry:v0.3.7/entry-0001":1,"release:v0.3.7":3},"release_version":"v0.3.7","schema_version":2}
+{"data":{"released_at":"2026-09-01"},"event":"release.finalized","event_id":"event-0064","record_revisions":{"release:v0.3.7":4},"release_version":"v0.3.7","schema_version":2}
