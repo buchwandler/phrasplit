@@ -13,9 +13,9 @@ from __future__ import annotations
 import importlib
 import re
 import warnings
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Protocol
 
 from phrasplit.abbreviations import (
     get_abbreviations,
@@ -30,6 +30,32 @@ from phrasplit.spacy_models import (
     resolve_spacy_model,
 )
 from phrasplit.types import SplitSegment
+
+
+class AnalyzedToken(Protocol):
+    """Minimal token surface required from an analyzed document."""
+
+    idx: int
+    text: str
+
+
+class AnalyzedSpan(Protocol):
+    """Minimal sentence-span surface required from an analyzed document."""
+
+    start_char: int
+    end_char: int
+    text: str
+
+
+class AnalyzedDocument(Protocol):
+    """Provider-neutral protocol for a pre-analyzed document."""
+
+    text: str
+
+    @property
+    def sents(self) -> Iterable[AnalyzedSpan]: ...
+
+    def __iter__(self) -> Iterator[AnalyzedToken]: ...
 
 
 class Segment(NamedTuple):
@@ -54,6 +80,13 @@ class SplitDiagnostics:
     backend: Literal["none", "regex", "spacy"]
     language: str
     resolution: SpacyModelResolution | None
+    analysis_source: Literal[
+        "regex",
+        "resolved-model",
+        "provided-pipeline",
+        "provided-document",
+    ] = "regex"
+    model_owned_by_caller: bool = False
 
     @property
     def selected_model(self) -> str | None:
@@ -729,15 +762,36 @@ def _resolve_backend(
     language_model: str | None,
     model_size: SpacyModelSize | None,
     use_spacy: bool | None,
-) -> tuple[bool, str | None, str, SpacyModelResolution | None]:
+    doc: AnalyzedDocument | None = None,
+    nlp: Any | None = None,
+) -> tuple[
+    bool,
+    str | None,
+    str,
+    SpacyModelResolution | None,
+    Literal["regex", "resolved-model", "provided-pipeline", "provided-document"],
+    bool,
+]:
     """Resolve one backend/model choice at a public API boundary."""
-
     global LAST_SPACY_MODEL
     normalized_language = normalize_spacy_language(language)
+    if doc is not None:
+        if use_spacy is False:
+            raise ValueError(
+                "a pre-analyzed document cannot be combined with use_spacy=False"
+            )
+        LAST_SPACY_MODEL = None
+        return True, None, normalized_language, None, "provided-document", True
+    if nlp is not None:
+        if use_spacy is False:
+            raise ValueError(
+                "a provided NLP pipeline cannot be combined with use_spacy=False"
+            )
+        LAST_SPACY_MODEL = None
+        return True, None, normalized_language, None, "provided-pipeline", True
     if use_spacy is False:
         LAST_SPACY_MODEL = None
-        return False, language_model, normalized_language, None
-
+        return False, language_model, normalized_language, None, "regex", False
     resolution = resolve_spacy_model(
         language=normalized_language,
         model=language_model,
@@ -746,8 +800,51 @@ def _resolve_backend(
     )
     LAST_SPACY_MODEL = resolution.model
     if resolution.model:
-        return True, resolution.model, normalized_language, resolution
-    return False, language_model, normalized_language, resolution
+        return (
+            True,
+            resolution.model,
+            normalized_language,
+            resolution,
+            "resolved-model",
+            False,
+        )
+    return False, language_model, normalized_language, resolution, "regex", False
+
+
+def _validate_analyzed_document(text: str, doc: AnalyzedDocument) -> None:
+    """Reject a document analyzed from a different input string."""
+    if getattr(doc, "text", None) != text:
+        raise ValueError("pre-analyzed document text does not match input text")
+
+
+def _validate_optional_analyzed_document(
+    text: str, doc: AnalyzedDocument | None
+) -> None:
+    if doc is not None:
+        _validate_analyzed_document(text, doc)
+
+
+def _analysis_metadata(
+    nlp: Any | None, doc: AnalyzedDocument | None
+) -> tuple[Literal["regex", "provided-pipeline", "provided-document"], bool]:
+    if doc is not None:
+        return "provided-document", True
+    if nlp is not None:
+        return "provided-pipeline", True
+    return "regex", False
+
+
+def _document_sentence_offsets(
+    doc: AnalyzedDocument, start: int, end: int
+) -> list[tuple[int, int]]:
+    """Return sentence offsets from a supplied document within a text region."""
+    return [
+        (sent.start_char - start, sent.end_char - start)
+        for sent in doc.sents
+        if sent.text
+        and not sent.text.isspace()
+        and start <= sent.start_char < sent.end_char <= end
+    ]
 
 
 def _extract_sentences(doc: Any) -> list[str]:
@@ -827,11 +924,16 @@ def _process_long_text(
 
 def _process_long_text_with_offsets(
     text: str,
-    nlp: Language,
+    nlp: Any | None = None,
     max_chunk: int = _DEFAULT_MAX_CHUNK_SIZE,
     safety_margin: int = _DEFAULT_SAFETY_MARGIN,
+    doc: AnalyzedDocument | None = None,
 ) -> list[tuple[int, int]]:
     """Process text into sentence offsets without exceeding spaCy limits."""
+    if doc is not None:
+        return _document_sentence_offsets(doc, 0, len(text))
+    if nlp is None:
+        raise ValueError("an NLP pipeline or analyzed document is required")
     effective_max = min(max_chunk, nlp.max_length - safety_margin)
 
     if len(text) <= effective_max:
@@ -907,6 +1009,8 @@ def _split_sentences_spacy(
     apply_corrections: bool = True,
     split_on_colon: bool = True,
     language: str = "en",
+    nlp: Any | None = None,
+    doc: AnalyzedDocument | None = None,
 ) -> list[str]:
     """
     Split text into sentences using spaCy (internal implementation).
@@ -923,7 +1027,21 @@ def _split_sentences_spacy(
     Returns:
         List of sentences
     """
-    nlp = _get_nlp(language_model)
+    if doc is not None:
+        return [
+            segment.text
+            for segment in _split_with_offsets_spacy(
+                text,
+                language_model,
+                mode="sentence",
+                apply_corrections=apply_corrections,
+                language=language,
+                nlp=nlp,
+                doc=doc,
+            )
+        ]
+    if nlp is None:
+        nlp = _get_nlp(language_model)
     paragraphs = split_paragraphs(text)
 
     if not paragraphs:
@@ -964,6 +1082,8 @@ def split_sentences(
     *,
     language: str = "en",
     model_size: SpacyModelSize | None = None,
+    nlp: Any | None = None,
+    doc: AnalyzedDocument | None = None,
 ) -> list[str]:
     """
     Split text into sentences.
@@ -1015,6 +1135,8 @@ def split_sentences(
 
             pip install phrasplit[nlp]
     """
+    if doc is not None:
+        _validate_analyzed_document(text, doc)
     # Deprecation warning for split_on_colon
     if not split_on_colon:
         warnings.warn(
@@ -1024,11 +1146,20 @@ def split_sentences(
             stacklevel=2,
         )
 
-    use_spacy, resolved_model, normalized_language, _ = _resolve_backend(
+    (
+        use_spacy,
+        resolved_model,
+        normalized_language,
+        _,
+        _,
+        _,
+    ) = _resolve_backend(
         language=language,
         language_model=language_model,
         model_size=model_size,
         use_spacy=use_spacy,
+        doc=doc,
+        nlp=nlp,
     )
 
     if use_spacy:
@@ -1039,6 +1170,8 @@ def split_sentences(
             apply_corrections,
             split_on_colon,
             language=normalized_language,
+            nlp=nlp,
+            doc=doc,
         )
     else:
         # Use simple regex-based implementation
@@ -1079,6 +1212,9 @@ def _split_sentence_into_clauses(sentence: str) -> list[str]:
 def _split_clauses_spacy(
     text: str,
     language_model: str,
+    nlp: Any | None = None,
+    doc: AnalyzedDocument | None = None,
+    language: str = "en",
 ) -> list[str]:
     """
     Split text into comma-separated parts using spaCy (internal implementation).
@@ -1090,7 +1226,20 @@ def _split_clauses_spacy(
     Returns:
         List of comma-separated parts
     """
-    nlp = _get_nlp(language_model)
+    if doc is not None:
+        return [
+            segment.text
+            for segment in _split_with_offsets_spacy(
+                text,
+                language_model,
+                mode="clause",
+                language=language,
+                nlp=nlp,
+                doc=doc,
+            )
+        ]
+    if nlp is None:
+        nlp = _get_nlp(language_model)
     paragraphs = split_paragraphs(text)
 
     if not paragraphs:
@@ -1123,6 +1272,8 @@ def split_clauses(
     *,
     language: str = "en",
     model_size: SpacyModelSize | None = None,
+    nlp: Any | None = None,
+    doc: AnalyzedDocument | None = None,
 ) -> list[str]:
     """
     Split text into comma-separated parts for audiobook creation.
@@ -1154,16 +1305,33 @@ def split_clauses(
         Input: "I do like coffee, and I like wine."
         Output: ["I do like coffee,", "and I like wine."]
     """
+    if doc is not None:
+        _validate_analyzed_document(text, doc)
     # Determine which implementation to use
-    use_spacy, resolved_model, normalized_language, _ = _resolve_backend(
+    (
+        use_spacy,
+        resolved_model,
+        normalized_language,
+        _,
+        _,
+        _,
+    ) = _resolve_backend(
         language=language,
         language_model=language_model,
         model_size=model_size,
         use_spacy=use_spacy,
+        doc=doc,
+        nlp=nlp,
     )
 
     if use_spacy:
-        return _split_clauses_spacy(text, resolved_model or "")
+        return _split_clauses_spacy(
+            text,
+            resolved_model or "",
+            nlp=nlp,
+            doc=doc,
+            language=normalized_language,
+        )
     else:
         from phrasplit.splitter_without_spacy import split_clauses_simple
 
@@ -1300,6 +1468,9 @@ def _split_long_lines_spacy(
     text: str,
     max_length: int,
     language_model: str,
+    nlp: Any | None = None,
+    doc: AnalyzedDocument | None = None,
+    language: str = "en",
 ) -> list[str]:
     """
     Split lines exceeding max_length at clause/sentence boundaries using spaCy.
@@ -1318,7 +1489,20 @@ def _split_long_lines_spacy(
     if max_length < 1:
         raise ValueError(f"max_length must be at least 1, got {max_length}")
 
-    nlp = _get_nlp(language_model)
+    if doc is not None:
+        return [
+            segment.text
+            for segment in _split_with_offsets_spacy(
+                text,
+                language_model,
+                mode="sentence",
+                max_chars=max_length,
+                language=language,
+                doc=doc,
+            )
+        ]
+    if nlp is None:
+        nlp = _get_nlp(language_model)
 
     lines = text.split("\n")
     result: list[str] = []
@@ -1344,6 +1528,8 @@ def split_long_lines(
     *,
     language: str = "en",
     model_size: SpacyModelSize | None = None,
+    nlp: Any | None = None,
+    doc: AnalyzedDocument | None = None,
 ) -> list[str]:
     """
     Split lines exceeding max_length at clause/sentence boundaries.
@@ -1373,16 +1559,33 @@ def split_long_lines(
         NoCompatibleSpacyModelError: If forced spaCy has no compatible loadable model.
         ExplicitSpacyModelError: If an explicit model cannot be loaded.
     """
-    # Determine which implementation to use
-    use_spacy, resolved_model, normalized_language, _ = _resolve_backend(
+    if doc is not None:
+        _validate_analyzed_document(text, doc)
+    (
+        use_spacy,
+        resolved_model,
+        normalized_language,
+        _,
+        _,
+        _,
+    ) = _resolve_backend(
         language=language,
         language_model=language_model,
         model_size=model_size,
         use_spacy=use_spacy,
+        doc=doc,
+        nlp=nlp,
     )
 
     if use_spacy:
-        return _split_long_lines_spacy(text, max_length, resolved_model or "")
+        return _split_long_lines_spacy(
+            text,
+            max_length,
+            resolved_model or "",
+            nlp=nlp,
+            doc=doc,
+            language=normalized_language,
+        )
     else:
         from phrasplit.splitter_without_spacy import split_long_lines_simple
 
@@ -1404,6 +1607,8 @@ def split_text_with_diagnostics(
     *,
     language: str = "en",
     model_size: SpacyModelSize | None = None,
+    nlp: Any | None = None,
+    doc: AnalyzedDocument | None = None,
 ) -> SplitTextResult:
     """
     Split text and return segments with the resolution used for the operation.
@@ -1465,6 +1670,12 @@ def split_text_with_diagnostics(
     if mode not in valid_modes:
         raise ValueError(f"mode must be one of {valid_modes}, got {mode!r}")
     normalized_language = normalize_spacy_language(language)
+    _validate_optional_analyzed_document(text, doc)
+    if (doc is not None or nlp is not None) and use_spacy is False:
+        raise ValueError(
+            "a provided analysis object cannot be combined with use_spacy=False"
+        )
+    analysis_source, model_owned_by_caller = _analysis_metadata(nlp, doc)
     paragraphs = split_paragraphs(text)
 
     if not paragraphs:
@@ -1474,6 +1685,8 @@ def split_text_with_diagnostics(
                 backend="none",
                 language=normalized_language,
                 resolution=None,
+                analysis_source=analysis_source,
+                model_owned_by_caller=model_owned_by_caller,
             ),
         )
 
@@ -1488,19 +1701,58 @@ def split_text_with_diagnostics(
                 backend="none",
                 language=normalized_language,
                 resolution=None,
+                analysis_source=analysis_source,
+                model_owned_by_caller=model_owned_by_caller,
             ),
         )
     # Determine which implementation to use for sentence/clause modes
-    use_spacy, resolved_model, normalized_language, resolution = _resolve_backend(
+    (
+        use_spacy,
+        resolved_model,
+        normalized_language,
+        resolution,
+        analysis_source,
+        model_owned_by_caller,
+    ) = _resolve_backend(
         language=language,
         language_model=language_model,
         model_size=model_size,
         use_spacy=use_spacy,
+        doc=doc,
+        nlp=nlp,
     )
 
     if use_spacy:
-        # Use spaCy implementation
-        nlp = _get_nlp(resolved_model or "")
+        # Use spaCy-based implementation
+        if doc is not None:
+            offset_segments = _split_with_offsets_spacy(
+                text,
+                resolved_model or "",
+                mode=mode,
+                apply_corrections=apply_corrections,
+                language=normalized_language,
+                nlp=nlp,
+                doc=doc,
+            )
+            result = [
+                Segment(
+                    text=segment.text,
+                    paragraph=segment.paragraph_idx,
+                    sentence=segment.sentence_idx,
+                )
+                for segment in offset_segments
+            ]
+            return SplitTextResult(
+                segments=result,
+                diagnostics=SplitDiagnostics(
+                    backend="spacy",
+                    language=normalized_language,
+                    resolution=resolution,
+                    analysis_source=analysis_source,
+                    model_owned_by_caller=model_owned_by_caller,
+                ),
+            )
+        nlp = nlp if nlp is not None else _get_nlp(resolved_model or "")
 
         for para_idx, para in enumerate(paragraphs):
             # Protect ellipsis from being treated as sentence boundaries
@@ -1568,6 +1820,8 @@ def split_text_with_diagnostics(
             backend="spacy" if use_spacy else "regex",
             language=normalized_language,
             resolution=resolution,
+            analysis_source=analysis_source,
+            model_owned_by_caller=model_owned_by_caller,
         ),
     )
 
@@ -1582,6 +1836,8 @@ def split_text(
     *,
     language: str = "en",
     model_size: SpacyModelSize | None = None,
+    nlp: Any | None = None,
+    doc: AnalyzedDocument | None = None,
 ) -> list[Segment]:
     """Compatibility wrapper returning only segments from a detailed split."""
     return split_text_with_diagnostics(
@@ -1593,6 +1849,8 @@ def split_text(
         use_spacy=use_spacy,
         language=language,
         model_size=model_size,
+        nlp=nlp,
+        doc=doc,
     ).segments
 
 
@@ -2268,6 +2526,8 @@ def _split_with_offsets_spacy(
     apply_corrections: bool = True,
     *,
     language: str = "en",
+    nlp: Any | None = None,
+    doc: AnalyzedDocument | None = None,
 ) -> list[SplitSegment]:
     """Split text using spaCy-based approach with character offsets.
 
@@ -2288,7 +2548,8 @@ def _split_with_offsets_spacy(
             f"mode must be 'paragraph', 'sentence', or 'clause', got {mode!r}"
         )
 
-    nlp = _get_nlp(language_model)
+    if nlp is None and doc is None:
+        nlp = _get_nlp(language_model)
     result: list[SplitSegment] = []
 
     # Find paragraph boundaries
@@ -2332,7 +2593,10 @@ def _split_with_offsets_spacy(
             continue
 
         protected_para = _protect_ellipsis(para_text)
-        sent_offsets = _process_long_text_with_offsets(protected_para, nlp)
+        if doc is not None:
+            sent_offsets = _document_sentence_offsets(doc, para_start, para_end)
+        else:
+            sent_offsets = _process_long_text_with_offsets(protected_para, nlp)
 
         sentences: list[tuple[str, int, int]] = []
         for sent_start_in_para, sent_end_in_para in sent_offsets:
@@ -2504,6 +2768,8 @@ def split_with_offsets_with_diagnostics(
     apply_corrections: bool = True,
     max_chars: int | None = None,
     inline_markup: bool = False,
+    nlp: Any | None = None,
+    doc: AnalyzedDocument | None = None,
 ) -> SplitWithOffsetsResult:
     """Split text into offset-preserving segments with backend diagnostics.
 
@@ -2601,8 +2867,8 @@ def split_with_offsets_with_diagnostics(
     if max_chars is not None and max_chars < 1:
         raise ValueError(f"max_chars must be at least 1, got {max_chars}")
 
-    # inline_markup is only supported by the regex backend. Force it and reject
-    # an explicit spaCy request so callers do not silently get plain-text splits.
+    if doc is not None:
+        _validate_analyzed_document(text, doc)
     if inline_markup:
         if use_spacy is True:
             raise ValueError(
@@ -2612,16 +2878,37 @@ def split_with_offsets_with_diagnostics(
         use_spacy = False
 
     if mode == "paragraph":
+        if (doc is not None or nlp is not None) and use_spacy is False:
+            raise ValueError(
+                "a provided analysis object cannot be combined with use_spacy=False"
+            )
         resolved_model = language_model
         normalized_language = normalize_spacy_language(language)
         resolution = None
+        analysis_source = (
+            "provided-document"
+            if doc is not None
+            else "provided-pipeline"
+            if nlp is not None
+            else "regex"
+        )
+        model_owned_by_caller = doc is not None or nlp is not None
         use_spacy = False
     else:
-        use_spacy, resolved_model, normalized_language, resolution = _resolve_backend(
+        (
+            use_spacy,
+            resolved_model,
+            normalized_language,
+            resolution,
+            analysis_source,
+            model_owned_by_caller,
+        ) = _resolve_backend(
             language=language,
             language_model=language_model,
             model_size=model_size,
             use_spacy=use_spacy,
+            doc=doc,
+            nlp=nlp,
         )
 
     if use_spacy:
@@ -2632,6 +2919,8 @@ def split_with_offsets_with_diagnostics(
             max_chars,
             apply_corrections,
             language=normalized_language,
+            nlp=nlp,
+            doc=doc,
         )
     else:
         segments = _split_with_offsets_regex(
@@ -2652,6 +2941,8 @@ def split_with_offsets_with_diagnostics(
             ),
             language=normalized_language,
             resolution=resolution,
+            analysis_source=analysis_source,
+            model_owned_by_caller=model_owned_by_caller,
         ),
     )
 
@@ -2667,6 +2958,8 @@ def split_with_offsets(
     apply_corrections: bool = True,
     max_chars: int | None = None,
     inline_markup: bool = False,
+    nlp: Any | None = None,
+    doc: AnalyzedDocument | None = None,
 ) -> list[SplitSegment]:
     """Compatibility wrapper returning only offset-preserving segments."""
     return split_with_offsets_with_diagnostics(
@@ -2679,6 +2972,8 @@ def split_with_offsets(
         apply_corrections=apply_corrections,
         max_chars=max_chars,
         inline_markup=inline_markup,
+        nlp=nlp,
+        doc=doc,
     ).segments
 
 
@@ -2693,6 +2988,8 @@ def iter_split_with_offsets(
     apply_corrections: bool = True,
     max_chars: int | None = None,
     inline_markup: bool = False,
+    nlp: Any | None = None,
+    doc: AnalyzedDocument | None = None,
 ) -> Iterator[SplitSegment]:
     """Iterator facade over :func:`split_with_offsets`.
 
@@ -2742,5 +3039,7 @@ def iter_split_with_offsets(
         apply_corrections=apply_corrections,
         max_chars=max_chars,
         inline_markup=inline_markup,
+        nlp=nlp,
+        doc=doc,
     )
     yield from segments

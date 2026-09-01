@@ -13,6 +13,9 @@ from .spacy_models import (
     resolve_spacy_model,
 )
 from .splitter import (
+    AnalyzedDocument,
+    AnalyzedSpan,
+    AnalyzedToken,
     Segment,
     SplitDiagnostics,
     SplitTextResult,
@@ -41,6 +44,9 @@ except ImportError:
 
 __all__ = [
     "COMMON_PATTERNS",
+    "AnalyzedDocument",
+    "AnalyzedSpan",
+    "AnalyzedToken",
     "ExplicitSpacyModelError",
     "NoCompatibleSpacyModelError",
     "Segment",

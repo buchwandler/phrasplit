@@ -402,3 +402,28 @@ segments = split_with_offsets(text, mode=mode)
 - {doc}`streaming` - Iterator API and current materialization limits
 - {doc}`api` - Complete API reference
 - {doc}`examples` - More examples
+
+## Reusing prepared spaCy analysis
+
+Use `doc=` when an upstream TTS orchestrator has already normalized text and run spaCy.
+This avoids a second `nlp(text)` call while retaining phrasplit's corrections and
+exact-offset projection:
+
+```python
+prepared = spokenform.prepare(raw_written_text)
+doc = nlp(prepared.spoken_text)
+result = split_with_offsets_with_diagnostics(
+    prepared.spoken_text, language="de", doc=doc
+ )
+for segment in result.segments:
+    assert segment.text == prepared.spoken_text[segment.char_start:segment.char_end]
+```
+
+Use `nlp=` instead when the caller owns the pipeline but wants phrasplit to run it.
+`doc=` takes precedence over `nlp=`. Both injected forms reject `use_spacy=False`,
+bypass internal model resolution, and report caller-owned analysis in
+`SplitDiagnostics`. The document text must exactly match the input. Phrasplit does not
+mutate, cache, close, or unload either resource.
+
+For raw standalone text, omit both arguments. Phrasplit remains independent of
+Spokenform and keeps its normal abbreviation and boundary corrections.

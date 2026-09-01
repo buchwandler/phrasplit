@@ -1,5 +1,7 @@
 """Tests for offset-preserving segmentation."""
 
+from types import SimpleNamespace
+
 import pytest
 
 from phrasplit import (
@@ -897,3 +899,115 @@ class TestInlineMarkupMode:
             split_with_offsets_with_diagnostics(
                 "<em>Hello.</em>", inline_markup=True, use_spacy=True
             )
+
+
+class TestInjectedSpacyAnalysis:
+    """Tests for caller-provided spaCy-compatible analysis."""
+
+    @staticmethod
+    def make_doc(text: str, spans: list[tuple[int, int]]) -> object:
+        return SimpleNamespace(
+            text=text,
+            sents=[
+                SimpleNamespace(
+                    text=text[start:end],
+                    start_char=start,
+                    end_char=end,
+                )
+                for start, end in spans
+            ],
+        )
+
+    def test_precomputed_doc_bypasses_resolution_and_inference(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        text = "One. Two."
+        doc = self.make_doc(text, [(0, 4), (5, 9)])
+
+        def fail_resolution(**_: object) -> object:
+            raise AssertionError("provided document must not resolve a model")
+
+        monkeypatch.setattr(splitter, "resolve_spacy_model", fail_resolution)
+        result = split_with_offsets_with_diagnostics(text, doc=doc)
+
+        assert [segment.text for segment in result.segments] == ["One.", "Two."]
+        assert result.diagnostics.analysis_source == "provided-document"
+        assert result.diagnostics.model_owned_by_caller is True
+        assert result.diagnostics.selected_model is None
+
+    def test_precomputed_doc_does_not_call_pipeline_again(self) -> None:
+        text = "One. Two."
+        calls = 0
+
+        class CountingNlp:
+            max_length = 1000000
+
+            def __call__(self, value: str) -> object:
+                nonlocal calls
+                calls += 1
+                return TestInjectedSpacyAnalysis.make_doc(value, [(0, 4), (5, 9)])
+
+        nlp = CountingNlp()
+        doc = nlp(text)
+        before = calls
+        result = split_with_offsets_with_diagnostics(text, doc=doc)
+
+        assert calls == before
+        assert len(result.segments) == 2
+
+    def test_precomputed_doc_requires_matching_text(self) -> None:
+        doc = self.make_doc("B.", [(0, 2)])
+
+        with pytest.raises(ValueError, match="does not match input text"):
+            split_with_offsets_with_diagnostics("A.", doc=doc)
+
+    def test_injected_pipeline_bypasses_resolution(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        text = "One. Two."
+        nlp_calls: list[str] = []
+
+        class CountingNlp:
+            max_length = 1000000
+
+            def __call__(self, value: str) -> object:
+                nlp_calls.append(value)
+                return TestInjectedSpacyAnalysis.make_doc(value, [(0, 4), (5, 9)])
+
+        def fail_resolution(**_: object) -> object:
+            raise AssertionError("provided pipeline must not resolve a model")
+
+        monkeypatch.setattr(splitter, "resolve_spacy_model", fail_resolution)
+        result = split_with_offsets_with_diagnostics(text, nlp=CountingNlp())
+
+        assert nlp_calls == [text]
+        assert [segment.text for segment in result.segments] == ["One.", "Two."]
+        assert result.diagnostics.analysis_source == "provided-pipeline"
+
+    def test_injected_analysis_rejects_regex_mode(self) -> None:
+        doc = self.make_doc("A.", [(0, 2)])
+
+        with pytest.raises(ValueError, match="use_spacy=False"):
+            split_with_offsets_with_diagnostics("A.", doc=doc, use_spacy=False)
+
+    def test_injected_doc_preserves_exact_slices_and_corrections(self) -> None:
+        text = '  Dr. Smith visited https://example.test.  "Next... Now!"  '
+        doc = self.make_doc(text, [(2, len(text) - 2)])
+        result = split_with_offsets_with_diagnostics(text, doc=doc, max_chars=30)
+
+        assert result.segments
+        for segment in result.segments:
+            assert segment.text == text[segment.char_start : segment.char_end]
+
+    def test_injected_doc_is_forwarded_to_compatibility_apis(self) -> None:
+        text = "One. Two."
+        doc = self.make_doc(text, [(0, 4), (5, 9)])
+
+        from phrasplit import split_clauses, split_sentences, split_text
+
+        assert split_sentences(text, doc=doc) == ["One.", "Two."]
+        assert split_clauses(text, doc=doc) == ["One.", "Two."]
+        assert [segment.text for segment in split_text(text, doc=doc)] == [
+            "One.",
+            "Two.",
+        ]

@@ -320,3 +320,22 @@ New code using `split_with_offsets()` should:
 - [Offset Coordinate System](offsets.md)
 - [Streaming API](streaming.md)
 - [SSMD Integration Examples](offsets.md)
+
+## Prepared-text spaCy integration
+
+For TTS orchestration, prepare written text before analysis, then share one analysis
+between phrasplit and pronunciation processing:
+
+```python
+prepared = spokenform.prepare(raw_written_text)
+doc = nlp(prepared.spoken_text)
+split = split_with_offsets_with_diagnostics(
+    prepared.spoken_text, language="de", doc=doc
+ )
+# Use the same prepared text and analysis for POS-aware G2P.
+```
+
+This is distinct from standalone raw-text use, where phrasplit may apply its complete
+language-specific abbreviation handling. Supplied documents and pipelines are
+caller-owned. Phrasplit does not mutate or retain them, and a supplied document must
+have exactly the same `.text` as the input.

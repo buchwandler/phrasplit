@@ -320,3 +320,27 @@ def split_long_lines(
     model_size: str | None = None,
 ) -> list[str]: ...
 ```
+
+## Injected spaCy analysis
+
+The splitter can consume analysis prepared by an orchestrator. `doc` must expose `text`,
+`sents`, and sentence spans with `start_char` and `end_char`; it is checked against the
+exact input string. `nlp` is a caller-owned callable pipeline used when `doc` is not
+supplied.
+
+```python
+prepared = spokenform.prepare(raw_text)
+doc = nlp(prepared.spoken_text)
+result = split_with_offsets_with_diagnostics(
+    prepared.spoken_text, language="de", doc=doc
+ )
+```
+
+A supplied `doc` is preferred over `nlp`, bypasses model resolution and inference, and
+cannot be combined with `use_spacy=False`. Diagnostics report `analysis_source` as
+`provided-document` or `provided-pipeline`, set `model_owned_by_caller` to `True`, and
+leave `selected_model` unset when no model identity is available. Phrasplit still
+applies its corrections and exact-slice offset projection.
+
+Phrasplit only reads injected resources during the call. It does not mutate, cache,
+close, unload, or take ownership of a supplied document or pipeline.
