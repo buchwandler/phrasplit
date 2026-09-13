@@ -1,0 +1,52 @@
+schema_version: 1
+object_type: commit_audit_sheet
+versioning:
+  schema_version: 1
+  revision: 2
+release_version: v0.3.8
+git_base_ref: v0.3.7
+git_base_sha: 44f3f3ff6cd30d3ef01b1eeb7527140f4c529e06
+git_head_ref: HEAD
+git_head_sha: fad403e90d761cce1768cdf05f840309d21c635c
+git_range: 44f3f3ff6cd30d3ef01b1eeb7527140f4c529e06..fad403e90d761cce1768cdf05f840309d21c635c
+commit_count: 1
+rows:
+  - sha: fad403e90d761cce1768cdf05f840309d21c635c
+    source_ref: git:fad403e90d761cce1768cdf05f840309d21c635c
+    short_sha: fad403e
+    changed_paths:
+      - .ledger/releaseledger/data/ledgers/main/events/events.jsonl
+      - .ledger/releaseledger/data/ledgers/main/releases/v0.3.8/entries/entry-0001.md
+      - .ledger/releaseledger/data/ledgers/main/releases/v0.3.8/release.md
+      - README.md
+      - docs/api.md
+      - docs/integration.md
+      - phrasplit/__init__.py
+      - phrasplit/splitter.py
+      - phrasplit/types.py
+      - tests/test_clause_boundaries.py
+    stats:
+      files_changed: 0
+      insertions: 673
+      deletions: 12
+    inspected: true
+    inspected_paths:
+      - README.md
+      - docs/api.md
+      - docs/integration.md
+      - phrasplit/__init__.py
+      - phrasplit/splitter.py
+      - phrasplit/types.py
+      - tests/test_clause_boundaries.py
+    observed_behavior:
+      Adds the public detect_clause_boundaries API and ClauseBoundary type for
+      conservative spaCy-backed clausal-comma detection with exact source offsets,
+      caller-supplied document and pipeline support, and no-model fallback behavior;
+      documents the API and verifies positive, negative, offset, injection, and
+      validation cases.
+    public_impact: public
+    decision: accepted
+    stale: false
+    evidence_subject: "feat: add comma detection for connected sentences"
+    target_entry_id: entry-0001
+    notes: Reviewed implementation, public exports, documentation, and regression tests.
