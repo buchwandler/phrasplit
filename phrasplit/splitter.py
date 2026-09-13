@@ -15,7 +15,7 @@ import re
 import warnings
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Protocol
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Protocol, cast
 
 from phrasplit.abbreviations import (
     get_abbreviations,
@@ -29,7 +29,7 @@ from phrasplit.spacy_models import (
     normalize_spacy_language,
     resolve_spacy_model,
 )
-from phrasplit.types import SplitSegment
+from phrasplit.types import ClauseBoundary, SplitSegment
 
 
 class AnalyzedToken(Protocol):
@@ -824,9 +824,155 @@ def _validate_optional_analyzed_document(
         _validate_analyzed_document(text, doc)
 
 
+_SUBJECT_DEPS = {"nsubj", "nsubjpass", "csubj", "csubjpass"}
+_FINITE_AUXILIARY_DEPS = {"aux", "auxpass", "cop"}
+_NONFINITE_FORMS = {"inf", "part", "ger"}
+
+
+def _token_key(token: Any) -> int:
+    """Return a stable token identity based on its index or source offset."""
+    token_index = getattr(token, "i", None)
+    if isinstance(token_index, int):
+        return token_index
+    token_offset = getattr(token, "idx", None)
+    return token_offset if isinstance(token_offset, int) else -1
+
+
+def _dependency_label(token: Any) -> str:
+    """Return a normalized dependency label for a token."""
+    return str(getattr(token, "dep_", "") or "").strip().lower()
+
+
+def _morph_values(token: Any, key: str) -> set[str]:
+    """Read morphology values from spaCy-like or test-double tokens."""
+    morph = getattr(token, "morph", None)
+    if morph is None:
+        return set()
+    if isinstance(morph, str):
+        for item in morph.split("|"):
+            name, separator, values = item.partition("=")
+            if separator and name == key:
+                return {value for value in values.split(",") if value}
+        return set()
+    getter = getattr(morph, "get", None)
+    if not callable(getter):
+        return set()
+    raw_values = getter(key)
+    if raw_values is None:
+        return set()
+    if isinstance(raw_values, str):
+        return {raw_values}
+    try:
+        return {str(value) for value in raw_values}
+    except TypeError:
+        return {str(raw_values)}
+
+
+def _is_finite_token(token: Any) -> bool:
+    """Return whether a token has conservative finite predicate evidence."""
+    values = {value.lower() for value in _morph_values(token, "VerbForm")}
+    if values:
+        return "fin" in values and not values <= _NONFINITE_FORMS
+    tag = str(getattr(token, "tag_", "") or "").upper()
+    if tag in {"VBG", "VBN", "INF", "PART", "GER"}:
+        return False
+    if tag in {"VBD", "VBP", "VBZ"}:
+        return True
+    return str(getattr(token, "pos_", "") or "").upper() == "AUX"
+
+
+def _head_matches(token: Any, head: Any) -> bool:
+    """Compare a token's syntactic head using indices or stable offsets."""
+    token_head = getattr(token, "head", token)
+    token_key = _token_key(token_head)
+    head_key = _token_key(head)
+    if token_key >= 0 and head_key >= 0 and token_key == head_key:
+        return True
+    token_offset = getattr(token_head, "idx", None)
+    head_offset = getattr(head, "idx", None)
+    return (
+        isinstance(token_offset, int)
+        and isinstance(head_offset, int)
+        and token_offset == head_offset
+    )
+
+
+def _find_clause_heads(tokens: list[Any]) -> list[Any]:
+    """Find predicate heads with local subjects and finite evidence."""
+    heads: list[Any] = []
+    for head in tokens:
+        subjects = [
+            token
+            for token in tokens
+            if _dependency_label(token) in _SUBJECT_DEPS and _head_matches(token, head)
+        ]
+        if not subjects:
+            continue
+        finite = _is_finite_token(head)
+        if not finite:
+            finite = any(
+                _dependency_label(token) in _FINITE_AUXILIARY_DEPS
+                and _head_matches(token, head)
+                and _is_finite_token(token)
+                for token in tokens
+            )
+        if finite:
+            heads.append(head)
+    return heads
+
+
+def _detect_clausal_commas(doc: Any, text: str) -> list[ClauseBoundary]:
+    """Detect high-confidence clausal commas in an analyzed document."""
+    tokens = list(doc)
+    boundaries: list[ClauseBoundary] = []
+    seen: set[tuple[int, int]] = set()
+    sentences = getattr(doc, "sents", ())
+    for sentence in sentences:
+        start = getattr(sentence, "start_char", None)
+        end = getattr(sentence, "end_char", None)
+        if not isinstance(start, int) or not isinstance(end, int) or start >= end:
+            continue
+        sentence_tokens = [
+            token
+            for token in tokens
+            if isinstance(getattr(token, "idx", None), int) and start <= token.idx < end
+        ]
+        for comma in sentence_tokens:
+            if getattr(comma, "text", None) != ",":
+                continue
+            comma_start = comma.idx
+            comma_end = comma_start + len(comma.text)
+            left = [token for token in sentence_tokens if token.idx < comma_start]
+            right = [token for token in sentence_tokens if token.idx >= comma_end]
+            if not left or not right:
+                continue
+            if not _find_clause_heads(left) or not _find_clause_heads(right):
+                continue
+            key = (comma_start, comma_end)
+            if key in seen:
+                continue
+            seen.add(key)
+            boundaries.append(
+                ClauseBoundary(
+                    text=comma.text,
+                    char_start=comma_start,
+                    char_end=comma_end,
+                    kind="clausal_comma",
+                    meta={
+                        "method": "spacy",
+                        "rule": "explicit-subject-finite-clause-v1",
+                    },
+                )
+            )
+    return sorted(boundaries, key=lambda boundary: boundary.char_start)
+
+
 def _analysis_metadata(
     nlp: Any | None, doc: AnalyzedDocument | None
-) -> tuple[Literal["regex", "provided-pipeline", "provided-document"], bool]:
+) -> tuple[
+    Literal["regex", "resolved-model", "provided-pipeline", "provided-document"],
+    bool,
+]:
     if doc is not None:
         return "provided-document", True
     if nlp is not None:
@@ -2877,6 +3023,12 @@ def split_with_offsets_with_diagnostics(
             )
         use_spacy = False
 
+    analysis_source: Literal[
+        "regex",
+        "resolved-model",
+        "provided-pipeline",
+        "provided-document",
+    ]
     if mode == "paragraph":
         if (doc is not None or nlp is not None) and use_spacy is False:
             raise ValueError(
@@ -2945,6 +3097,54 @@ def split_with_offsets_with_diagnostics(
             model_owned_by_caller=model_owned_by_caller,
         ),
     )
+
+
+def detect_clause_boundaries(
+    text: str,
+    *,
+    use_spacy: bool | None = None,
+    language_model: str | None = None,
+    language: str = "en",
+    model_size: SpacyModelSize | None = None,
+    nlp: Any | None = None,
+    doc: AnalyzedDocument | None = None,
+) -> list[ClauseBoundary]:
+    """Detect high-confidence syntactic comma boundaries in ``text``.
+
+    This opt-in API is intentionally independent of :func:`split_clauses`, which
+    continues to split every comma-separated part.  Detection requires spaCy-like
+    dependency, subject, and finite-predicate annotations; regex mode never guesses.
+
+    Supplied documents are inspected directly and supplied pipelines are called once.
+    Neither caller-owned object is retained or mutated.
+    """
+    if doc is not None:
+        _validate_analyzed_document(text, doc)
+    (
+        backend_spacy,
+        resolved_model,
+        normalized_language,
+        _,
+        _,
+        _,
+    ) = _resolve_backend(
+        language=language,
+        language_model=language_model,
+        model_size=model_size,
+        use_spacy=use_spacy,
+        doc=doc,
+        nlp=nlp,
+    )
+    del normalized_language  # Backend resolution still validates the language.
+    if not backend_spacy:
+        return []
+    if doc is None:
+        if nlp is None:
+            nlp = _get_nlp(resolved_model or "")
+        analyzed_doc = cast(AnalyzedDocument, nlp(text))
+        _validate_analyzed_document(text, analyzed_doc)
+        doc = analyzed_doc
+    return _detect_clausal_commas(doc, text)
 
 
 def split_with_offsets(

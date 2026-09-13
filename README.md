@@ -109,7 +109,7 @@ for segment in result.segments:
 
 ### Python API
 
-```python
+````python
 from phrasplit import split_sentences, split_clauses, split_paragraphs, split_long_lines
 
 # Split text into sentences
@@ -122,15 +122,41 @@ text = "I like coffee, and I like tea."
 clauses = split_clauses(text)
 # ['I like coffee,', 'and I like tea.']
 
+
+### Syntactic clausal-comma boundaries
+`split_clauses()` splits every comma-separated chunk. For deterministic TTS pauses where precision matters, use the separate spaCy-backed detector:
+
+```python
+from phrasplit import detect_clause_boundaries
+
+text = "It had picked up the sound of a explosion, direction suggested it was behind."
+boundaries = detect_clause_boundaries(text)
+assert boundaries[0].text == text[boundaries[0].char_start : boundaries[0].char_end] == ","
+````
+
+The detector reports high-confidence commas between two explicitly headed finite
+clauses, not ordinary list commas:
+
+```python
+split_clauses("It picked up sound, light, smoke, and debris.")
+detect_clause_boundaries("It picked up sound, light, smoke, and debris.")  # []
+```
+
+`split_clauses()` -> all comma-separated chunks; `detect_clause_boundaries()` -> only
+high-confidence syntactic clausal commas.
+
 # Split text into paragraphs (no spaCy needed)
-text = "First paragraph.\n\nSecond paragraph."
-paragraphs = split_paragraphs(text)
+
+text = "First paragraph.\n\nSecond paragraph." paragraphs = split_paragraphs(text)
+
 # ['First paragraph.', 'Second paragraph.']
 
 # Split long lines at natural boundaries
-text = "This is a very long sentence that needs to be split."
-lines = split_long_lines(text, max_length=30)
-```
+
+text = "This is a very long sentence that needs to be split." lines =
+split_long_lines(text, max_length=30)
+
+````
 
 ### Hierarchical Splitting with Position Tracking
 
@@ -155,7 +181,7 @@ for i, seg in enumerate(segments):
     if i > 0 and seg.paragraph != segments[i-1].paragraph:
         print("--- paragraph break (add longer pause) ---")
     print(seg.text)
-```
+````
 
 Available modes:
 

@@ -91,6 +91,32 @@ clauses = split_clauses(text)
 clauses = split_clauses(text, use_spacy=False)
 ```
 
+### detect_clause_boundaries
+
+```{eval-rst}
+.. autofunction:: phrasplit.detect_clause_boundaries
+```
+
+Detects opt-in `clausal_comma` boundaries only when both sides of a comma have an
+explicit local syntactic subject and conservative finite-predicate evidence. It is
+independent of `split_clauses()`, which continues to return every comma-separated part.
+
+```python
+from phrasplit import ClauseBoundary, detect_clause_boundaries
+
+text = "I left, but she stayed."
+boundaries = detect_clause_boundaries(text, use_spacy=True)
+assert isinstance(boundaries[0], ClauseBoundary)
+assert boundaries[0].text == text[boundaries[0].char_start : boundaries[0].char_end]
+```
+
+The function uses token offsets and returns boundaries in source order without
+duplicates. `use_spacy=False` and automatic mode without a compatible local model return
+`[]`; automatic and forced model selection never download models. Forced spaCy preserves
+the existing resolver errors. A supplied `doc=` is validated against `text`, reused
+without another pipeline call, and caller-owned analysis is not mutated or retained. A
+supplied `nlp=` pipeline is called once.
+
 ### split_paragraphs
 
 ```{eval-rst}

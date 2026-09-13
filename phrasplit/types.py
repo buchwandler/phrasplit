@@ -3,7 +3,53 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
+
+
+@dataclass(frozen=True)
+class ClauseBoundary:
+    """A high-confidence syntactic clause boundary in the original text."""
+
+    text: str
+    char_start: int
+    char_end: int
+    kind: Literal["clausal_comma"]
+    meta: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        """Validate the boundary invariants."""
+        if self.char_start < 0:
+            raise ValueError(f"char_start must be >= 0, got {self.char_start}")
+        if self.char_end <= self.char_start:
+            raise ValueError(
+                f"char_end ({self.char_end}) must be greater than "
+                f"char_start ({self.char_start})"
+            )
+        if not self.text:
+            raise ValueError("text must not be empty")
+        if self.kind != "clausal_comma":
+            raise ValueError(f"unsupported boundary kind: {self.kind!r}")
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the boundary to a JSON-serializable dictionary."""
+        return {
+            "text": self.text,
+            "char_start": self.char_start,
+            "char_end": self.char_end,
+            "kind": self.kind,
+            "meta": self.meta,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> ClauseBoundary:
+        """Create a boundary from a dictionary."""
+        return cls(
+            text=data["text"],
+            char_start=data["char_start"],
+            char_end=data["char_end"],
+            kind=data["kind"],
+            meta=data.get("meta", {}),
+        )
 
 
 @dataclass

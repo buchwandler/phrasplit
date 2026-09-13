@@ -339,3 +339,27 @@ This is distinct from standalone raw-text use, where phrasplit may apply its com
 language-specific abbreviation handling. Supplied documents and pipelines are
 caller-owned. Phrasplit does not mutate or retain them, and a supplied document must
 have exactly the same `.text` as the input.
+
+## Syntactic clausal-comma boundaries
+
+For deterministic TTS pauses, `detect_clause_boundaries()` is narrower than the generic
+comma segmentation API. `split_clauses()` returns all comma-separated chunks; the
+detector returns only high-confidence `clausal_comma` boundaries with exact offsets.
+
+```python
+prepared = spokenform.prepare(raw_text)
+doc = nlp(prepared.spoken_text)
+
+segments = split_with_offsets(
+    prepared.spoken_text, mode="sentence", doc=doc
+ )
+boundaries = detect_clause_boundaries(
+    prepared.spoken_text, language="en", doc=doc
+ )
+```
+
+The same caller-owned `doc` can be reused by both calls; phrasplit does not invoke the
+pipeline again for the detector. Each boundary's `text` is exactly
+`prepared.spoken_text[char_start:char_end]`. The detector requires explicit local
+subjects and finite predicate evidence on both sides, so list commas and shared-subject
+sequences are not reported.

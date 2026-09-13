@@ -29,8 +29,9 @@ from .splitter import (
     split_with_offsets_with_diagnostics,
     split_with_offsets,
     iter_split_with_offsets,
+    detect_clause_boundaries,
 )
-from .types import SplitSegment
+from .types import ClauseBoundary, SplitSegment
 from .utils import (
     COMMON_PATTERNS,
     validate_no_placeholder_breaks,
@@ -47,6 +48,7 @@ __all__ = [
     "AnalyzedDocument",
     "AnalyzedSpan",
     "AnalyzedToken",
+    "ClauseBoundary",
     "ExplicitSpacyModelError",
     "NoCompatibleSpacyModelError",
     "Segment",
@@ -60,6 +62,7 @@ __all__ = [
     "SplitTextResult",
     "SplitWithOffsetsResult",
     "__version__",
+    "detect_clause_boundaries",
     "get_abbreviations",
     "iter_split_with_offsets",
     "normalize_spacy_language",
