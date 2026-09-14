@@ -117,6 +117,35 @@ the existing resolver errors. A supplied `doc=` is validated against `text`, reu
 without another pipeline call, and caller-owned analysis is not mutated or retained. A
 supplied `nlp=` pipeline is called once.
 
+### detect_parenthetical_boundaries
+
+```{eval-rst}
+.. autofunction:: phrasplit.detect_parenthetical_boundaries
+```
+
+Detects high-confidence balanced round-parenthesis asides without requiring spaCy or a
+parsed document. It returns `DetectedBoundary` values in source order. Each boundary
+covers exactly one original source character, so
+`boundary.text == text[boundary.char_start:boundary.char_end]`.
+
+```python
+from phrasplit import detect_parenthetical_boundaries
+
+text = "They changed clothes (stained with blood) before leaving."
+boundaries = detect_parenthetical_boundaries(text)
+assert [boundary.kind for boundary in boundaries] == [
+    "parenthetical_open",
+    "parenthetical_close",
+]
+```
+
+The detector reports semantic source boundaries only. It does not assign pause durations
+or TTS policy. It scans balanced outer pairs, ignores empty and whitespace-only pairs
+and obvious attached lexical or function notation, and does not emit an opening boundary
+at position zero. A closing boundary is omitted when the parenthesis is sentence-final
+or followed by stronger punctuation such as a comma, colon, semicolon, question mark,
+exclamation mark, ellipsis, or em dash.
+
 ### split_paragraphs
 
 ```{eval-rst}

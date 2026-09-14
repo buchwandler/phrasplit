@@ -5,15 +5,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+BoundaryKind = Literal["clausal_comma", "parenthetical_open", "parenthetical_close"]
+
 
 @dataclass(frozen=True)
 class ClauseBoundary:
-    """A high-confidence syntactic clause boundary in the original text."""
+    """A high-confidence structural boundary in the original text."""
 
     text: str
     char_start: int
     char_end: int
-    kind: Literal["clausal_comma"]
+    kind: BoundaryKind
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -27,7 +29,11 @@ class ClauseBoundary:
             )
         if not self.text:
             raise ValueError("text must not be empty")
-        if self.kind != "clausal_comma":
+        if self.kind not in {
+            "clausal_comma",
+            "parenthetical_open",
+            "parenthetical_close",
+        }:
             raise ValueError(f"unsupported boundary kind: {self.kind!r}")
 
     def to_dict(self) -> dict[str, Any]:
@@ -50,6 +56,9 @@ class ClauseBoundary:
             kind=data["kind"],
             meta=data.get("meta", {}),
         )
+
+
+DetectedBoundary = ClauseBoundary
 
 
 @dataclass

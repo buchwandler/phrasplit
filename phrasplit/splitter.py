@@ -29,7 +29,7 @@ from phrasplit.spacy_models import (
     normalize_spacy_language,
     resolve_spacy_model,
 )
-from phrasplit.types import ClauseBoundary, SplitSegment
+from phrasplit.types import ClauseBoundary, DetectedBoundary, SplitSegment
 
 
 class AnalyzedToken(Protocol):
@@ -919,6 +919,86 @@ def _find_clause_heads(tokens: list[Any]) -> list[Any]:
         if finite:
             heads.append(head)
     return heads
+
+
+_STRONG_PUNCTUATION_AFTER_PARENTHESES = frozenset(".,;:!?…—")
+
+
+def _outer_parenthesis_pairs(text: str) -> list[tuple[int, int]]:
+    """Return balanced outer round-parenthesis pairs in source order."""
+    stack: list[int] = []
+    pairs: list[tuple[int, int]] = []
+    for index, char in enumerate(text):
+        if char == "(":
+            stack.append(index)
+        elif char == ")" and stack:
+            opening = stack.pop()
+            if not stack:
+                pairs.append((opening, index))
+    return pairs
+
+
+def _has_spoken_content(text: str) -> bool:
+    """Return whether parenthetical content contains an alphanumeric character."""
+    return any(char.isalnum() for char in text)
+
+
+def _next_significant_char(text: str, start: int) -> str | None:
+    """Return the next non-whitespace source character, if any."""
+    for index in range(start, len(text)):
+        if not text[index].isspace():
+            return text[index]
+    return None
+
+
+def _should_treat_as_parenthetical(text: str, opening: int, closing: int) -> bool:
+    """Apply conservative prose filters to one balanced pair."""
+    if not _has_spoken_content(text[opening + 1 : closing]):
+        return False
+    return opening == 0 or not text[opening - 1].isalnum()
+
+
+def detect_parenthetical_boundaries(
+    text: str,
+    *,
+    language: str | None = None,
+) -> list[DetectedBoundary]:
+    """Detect high-confidence balanced round-parenthesis boundaries in ``text``."""
+    del language
+    boundaries: list[DetectedBoundary] = []
+    for opening, closing in _outer_parenthesis_pairs(text):
+        if not _should_treat_as_parenthetical(text, opening, closing):
+            continue
+        has_host_text = opening > 0 and bool(text[:opening].strip())
+        if has_host_text:
+            boundaries.append(
+                DetectedBoundary(
+                    text=text[opening],
+                    char_start=opening,
+                    char_end=opening + 1,
+                    kind="parenthetical_open",
+                    meta={
+                        "confidence": 1.0,
+                        "reason": "balanced_round_parentheses",
+                    },
+                )
+            )
+        next_char = _next_significant_char(text, closing + 1)
+        if next_char is None or next_char in _STRONG_PUNCTUATION_AFTER_PARENTHESES:
+            continue
+        boundaries.append(
+            DetectedBoundary(
+                text=text[closing],
+                char_start=closing,
+                char_end=closing + 1,
+                kind="parenthetical_close",
+                meta={
+                    "confidence": 1.0,
+                    "reason": "balanced_round_parentheses",
+                },
+            )
+        )
+    return boundaries
 
 
 def _detect_clausal_commas(doc: Any, text: str) -> list[ClauseBoundary]:
